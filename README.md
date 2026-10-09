@@ -63,6 +63,7 @@ Feeds ohne `source` in der Konfiguration legt ueBroadcast nicht selbst an. Eine 
 | Vorschau auf Sendung           | **TAKE**                                    | `Enter` oder Leertaste                 |
 | Feed direkt in den Hauptslot   | „Schnitt“ (Kachel oder Radar)               | –                                      |
 | Twitch-Marker setzen           | Reiter „Sendung“                            | `M`                                    |
+| Tabelle im Vollbild ein/aus    | „Tabelle Vollbild“ unter TAKE               | `L`                                    |
 
 Weitere Funktionen:
 
@@ -71,6 +72,7 @@ Weitere Funktionen:
 - **Audio-Follow**: nur der Feed im Hauptslot ist hörbar.
 - **Störungs-Handling**: Fällt ein Feed auf Sendung aus, kommt sofort eine Meldung und der Feed wird durch den nächstbesten ersetzt. Gibt es keinen Ersatz, schaltet ueBroadcast auf das Pausen-Layout.
 - **Grafik**: Namen/Zeiten in den Slots, Ticker „Gleich spannend“, Tabelle und Bauchbinde.
+- **Tabelle**: als Band im freien Platz unter den Feeds („Duell“, „Haupt + 3“), als Vollbild-Grafik mit allen Stats (Status, Split, Sterne, Zeit, Δ PB, PB, Runs, Resets …) und auf Wunsch als Lower Third, solange der Kommentar im Vollbild ist. Runner auf Sendung sind rot markiert, laufende Runs grün.
 - **Logbuch**: Takes, Meldungen und Marker mit Uhrzeit, als CSV für VOD-Schnitt und Nachbereitung.
 - Der Zustand (Logbuch, Runs, Tabelle, Bestzeiten) wird in `data/` gespeichert und übersteht Neustarts.
 

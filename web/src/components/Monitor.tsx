@@ -1,5 +1,12 @@
-import type { CommentaryInfo, Composition, FeedInsight, FeedState, LayoutDef } from '../../../shared/types';
-import { TICKER_RESERVE, hostOf, hostRect } from '../../../shared/host';
+import type {
+  CommentaryInfo,
+  Composition,
+  FeedInsight,
+  FeedState,
+  GraphicsState,
+  LayoutDef,
+} from '../../../shared/types';
+import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
 import { useCommentarySnapshot } from './Commentary';
 import { DeltaText, TimerText } from './bits';
 import { LiveFrame, canShowLive } from './LiveFrame';
@@ -21,6 +28,8 @@ interface Props {
   onToggleLive: () => void;
   commentary: CommentaryInfo | null;
   tickerOn: boolean;
+  /** Grafik-Ebenen (Tabelle), wenn das Format eine Tabelle hat */
+  graphics?: GraphicsState | null;
   /** OBS verbunden – Standbild der Kommentar-Szene abrufbar */
   snapshotAvailable: boolean;
 }
@@ -42,12 +51,18 @@ export function Monitor({
   onToggleLive,
   commentary,
   tickerOn,
+  graphics,
   snapshotAvailable,
 }: Props) {
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
   const host = hostOf(comp);
   const box = commentary ? hostRect(layout, host, commentary.size, tickerOn ? TICKER_RESERVE : 0) : null;
   const snapshot = useCommentarySnapshot(!!box && snapshotAvailable);
+  // Tabellen-Grafiken: Band unter den Feeds, Lower Third im Kommentar-Vollbild, Vollbild (nur Programm)
+  const band =
+    graphics?.boardStrip && host.mode !== 'full' && !graphics.lowerThird.visible ? boardBand(layout, tickerOn) : null;
+  const lowerBoard = !!graphics?.hostBoard && host.mode === 'full' && !!box;
+  const fullBoard = kind === 'program' && !!graphics?.boardFull;
   return (
     <div className={`monitor ${kind}`}>
       <div className="monitor-head">
@@ -137,6 +152,21 @@ export function Monitor({
             </span>
           </div>
         )}
+        {band && (
+          <div
+            className="board-band"
+            style={{
+              left: `${band.x * 100}%`,
+              top: `${band.y * 100}%`,
+              width: `${band.w * 100}%`,
+              height: `${band.h * 100}%`,
+            }}
+          >
+            Tabelle
+          </div>
+        )}
+        {lowerBoard && <div className="board-band lower">Tabelle</div>}
+        {fullBoard && <div className="board-full">Tabelle · Vollbild</div>}
       </div>
     </div>
   );

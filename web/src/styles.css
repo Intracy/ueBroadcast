@@ -2201,3 +2201,60 @@ input[type='range'] {
   padding: 0;
   accent-color: var(--accent);
 }
+
+/* Tabellen-Grafiken im Monitor (Platzhalter, das echte Bild macht das Overlay) */
+.board-band {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(255, 214, 138, 0.55);
+  border-radius: 3px;
+  background: rgba(255, 214, 138, 0.08);
+  color: #ffd68a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.board-band.lower {
+  left: 5%;
+  right: 5%;
+  bottom: 9%;
+  height: 11%;
+}
+
+.board-full {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 12% 0%, rgba(239, 59, 63, 0.35), transparent 45%), rgba(11, 13, 16, 0.92);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.board-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--muted, #9aa4b0);
+  cursor: pointer;
+}
+
+.inline-check input {
+  accent-color: #ef3b3f;
+}

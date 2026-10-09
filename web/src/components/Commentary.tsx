@@ -3,6 +3,7 @@ import type { ObsStatus, ProductionState } from '../../../shared/types';
 import type { Corner, HostMode, HostPlacement } from '../../../shared/host';
 import { CORNER_LABEL, hostOf } from '../../../shared/host';
 import { send } from '../api';
+import { formatUi } from '../formats';
 
 // ------------------------------------------------------------------ Standbild der Kommentar-Szene aus OBS
 
@@ -79,6 +80,7 @@ const CORNER_ICON: Record<Corner, string> = { tl: '↖', tr: '↗', bl: '↙', b
 
 export function CommentaryBar({ production, obs }: { production: ProductionState; obs: ObsStatus }) {
   const c = production.commentary;
+  const hasBoard = !!formatUi(production.format).boardData;
   const snapshot = useCommentarySnapshot(!!c && snapshotPossible(obs, production));
   const preview = hostOf(production.preview);
   const program = hostOf(production.program);
@@ -178,6 +180,16 @@ export function CommentaryBar({ production, obs }: { production: ProductionState
           >
             {program.mode === 'pip' ? 'Overlay ausblenden' : 'Overlay einblenden'}
           </button>
+          {hasBoard && (
+            <label className="inline-check" title="Tabelle als Lower Third, solange der Kommentar im Vollbild ist">
+              <input
+                type="checkbox"
+                checked={production.graphics.hostBoard}
+                onChange={(e) => send('graphics', { patch: { hostBoard: e.target.checked } })}
+              />
+              Tabelle als Lower Third im Vollbild
+            </label>
+          )}
         </div>
       </div>
     </section>

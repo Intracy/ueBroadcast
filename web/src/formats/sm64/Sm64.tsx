@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { Sm64Runner, Sm64Scoring, Sm64State } from '../../../../shared/sm64';
-import { formatDuration, parseDuration, timerValue } from '../../../../shared/format';
+import { formatDelta, formatDuration, parseDuration, timerValue } from '../../../../shared/format';
 import { send } from '../../api';
 import { DeltaText } from '../../components/bits';
 import type { FormatPanelProps } from '..';
+import type { ProductionState } from '../../../../shared/types';
+import type { BoardColumn, BoardData, BoardRow } from '../board';
 
 const SCORING_LABEL: Record<Sm64Scoring, string> = {
   bestTime: 'Beste Zeit',
@@ -209,4 +211,68 @@ export function Sm64Board({ production }: FormatPanelProps) {
       )}
     </div>
   );
+}
+
+/** Tabellendaten für Band, Vollbild-Grafik und Lower Third. */
+export function sm64BoardData(production: ProductionState, now: number, offset: number): BoardData | null {
+  const s = production.formatState as Sm64State | null;
+  if (!s?.leaderboard?.length) return null;
+  const runners = new Map(s.runners.map((r) => [r.feedId, r]));
+  const columns: BoardColumn[] = [
+    { key: 'status', label: 'Status' },
+    { key: 'split', label: 'Aktueller Split' },
+    { key: 'stars', label: 'Sterne', numeric: true },
+    { key: 'time', label: 'Zeit', numeric: true },
+    { key: 'delta', label: 'Δ PB', numeric: true },
+    { key: 'pb', label: 'PB', numeric: true },
+  ];
+  // Spalte weglassen, die schon als Wertung vorne steht
+  if (s.scoring !== 'bestTime') columns.push({ key: 'best', label: 'Event-Best', numeric: true });
+  if (s.scoring !== 'finishedRuns') columns.push({ key: 'runs', label: 'Runs', numeric: true });
+  columns.push({ key: 'resets', label: 'Resets', numeric: true });
+  if (s.scoring !== 'totalStars') columns.push({ key: 'total', label: '★ gesamt', numeric: true });
+
+  const rows: BoardRow[] = s.leaderboard.map((row) => {
+    const r = runners.get(row.feedId);
+    const active = !!r && (r.phase === 'running' || r.phase === 'paused');
+    const time = r && r.phase !== 'idle' && r.phase !== 'reset' ? timerValue(runnerTimer(r), now, offset) : null;
+    const detail = !r
+      ? ''
+      : active
+        ? `${r.stars}/${s.goalStars} ★ · ${formatDuration(time)}`
+        : r.phase === 'finished'
+          ? `Ziel ${formatDuration(r.lastFinishMs, true)}`
+          : PHASE_LABEL[r.phase];
+    return {
+      feedId: row.feedId,
+      rank: row.rank,
+      name: row.name,
+      value: row.value,
+      detail,
+      active,
+      cells: {
+        status: { text: r ? PHASE_LABEL[r.phase] : '–', tone: active ? 'good' : 'muted' },
+        split: { text: active && r?.splitName ? r.splitName : '–', tone: active ? undefined : 'muted' },
+        stars: { text: r ? `${r.stars}/${s.goalStars}` : '–', tone: 'accent' },
+        time: { text: formatDuration(time) },
+        delta: {
+          text: active && r?.deltaMs != null ? formatDelta(r.deltaMs) : '–',
+          tone: active && r?.deltaMs != null ? (r.deltaMs < 0 ? 'good' : 'bad') : 'muted',
+        },
+        pb: { text: formatDuration(r?.pbMs ?? null) },
+        best: { text: formatDuration(row.bestEventMs, true) },
+        runs: { text: String(row.finishedRuns) },
+        resets: { text: String(r?.resets ?? 0) },
+        total: { text: `${row.totalStars} ★` },
+      },
+    };
+  });
+
+  return {
+    title: 'Tabelle',
+    valueLabel: SCORING_LABEL[s.scoring],
+    columns,
+    rows,
+    footer: s.eventBest ? `Event-Bestzeit · ${s.eventBest.name} · ${formatDuration(s.eventBest.ms, true)}` : undefined,
+  };
 }

@@ -73,3 +73,19 @@ export function hostRect(
 
 /** Platz für den Ticker unten im Overlay (64 px + Rand bei 1080 px Höhe). */
 export const TICKER_RESERVE = 72 / 1080;
+
+/**
+ * Freier Streifen unter den Feeds, in dem das Tabellen-Band Platz hat (z. B. in „Duell“ und „Haupt + 3“).
+ * `null`, wenn das Layout unten keinen nennenswerten Platz lässt.
+ */
+export function boardBand(layout: LayoutDef | undefined, tickerOn: boolean): Rect | null {
+  if (!layout || layout.slots.length === 0) return null;
+  const bottom = Math.max(...layout.slots.map((s) => s.y + s.h));
+  const top = bottom + 12 / 1080;
+  const end = 1 - (tickerOn ? TICKER_RESERVE : 0) - 8 / 1080;
+  if (end - top < BOARD_BAND_MIN) return null;
+  return { x: 24 / 1920, y: top, w: 1 - 48 / 1920, h: end - top };
+}
+
+/** Mindesthöhe des Tabellen-Bands (110 px bei 1080 px Höhe). */
+export const BOARD_BAND_MIN = 110 / 1080;

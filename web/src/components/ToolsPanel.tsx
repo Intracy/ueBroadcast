@@ -58,6 +58,7 @@ function GraphicsTab({ production }: { production: ProductionState }) {
   const [subtitle, setSubtitle] = useState(g.lowerThird.subtitle);
   const patch = (p: Partial<typeof g>) => send('graphics', { patch: p });
   const hasBoard = !!formatUi(production.format).OverlayBoard;
+  const hasBoardData = !!formatUi(production.format).boardData;
   return (
     <div className="tool-grid">
       <div>
@@ -65,9 +66,44 @@ function GraphicsTab({ production }: { production: ProductionState }) {
         <Toggle checked={g.slotLabels} onChange={(v) => patch({ slotLabels: v })} label="Namen & Zeiten in den Slots" />
         <Toggle checked={g.ticker} onChange={(v) => patch({ ticker: v })} label="Ticker „Gleich spannend“" />
         {hasBoard && (
-          <Toggle checked={g.leaderboard} onChange={(v) => patch({ leaderboard: v })} label="Tabelle / Leaderboard" />
+          <Toggle
+            checked={g.leaderboard}
+            onChange={(v) => patch({ leaderboard: v })}
+            label="Tabelle rechts über den Feeds"
+          />
+        )}
+        {hasBoardData && (
+          <>
+            <Toggle
+              checked={g.boardStrip}
+              onChange={(v) => patch({ boardStrip: v })}
+              label="Tabellen-Band unter den Feeds"
+              hint="Füllt den freien Platz in „Duell“ und „Haupt + 3“. Weicht der Bauchbinde."
+            />
+            <Toggle
+              checked={g.hostBoard}
+              onChange={(v) => patch({ hostBoard: v })}
+              label="Tabelle als Lower Third im Kommentar-Vollbild"
+            />
+          </>
         )}
       </div>
+      {hasBoardData && (
+        <div>
+          <h4>Vollbild-Tabelle</h4>
+          <p className="muted small">Komplette Tabelle mit allen Stats über dem Programm. Taste L.</p>
+          <div className="row">
+            <button
+              type="button"
+              className={`btn ${g.boardFull ? 'live' : 'primary'}`}
+              onClick={() => patch({ boardFull: !g.boardFull })}
+            >
+              {g.boardFull ? 'Vollbild-Tabelle ausblenden' : 'Vollbild-Tabelle einblenden'}
+            </button>
+            {g.boardFull && <span className="pill bad">auf Sendung</span>}
+          </div>
+        </div>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();

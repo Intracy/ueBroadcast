@@ -314,3 +314,326 @@ body {
   font-size: 42px;
   font-weight: 800;
 }
+
+/* ------------------------------------------------------------------ Tabelle: Band, Lower Third, Vollbild */
+
+.ov-host-full.raised,
+.ov-lower.raised {
+  bottom: 300px;
+}
+
+.ovb-strip,
+.ovb-lower {
+  position: absolute;
+  display: flex;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  animation: ovb-rise 0.45s ease both;
+}
+
+.ovb-lower {
+  left: 96px;
+  right: 96px;
+  bottom: 40px;
+  height: 118px;
+}
+
+.ovb-lower.above-ticker {
+  bottom: 96px;
+}
+
+.ovb-label {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: #ef3b3f;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.ovb-label strong {
+  font-size: 26px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ovb-label small {
+  font-size: 17px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.ovb-grid {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.ovb-card {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  row-gap: 2px;
+  align-content: center;
+  padding: 8px 16px 8px 12px;
+  border-radius: 8px;
+  background: rgba(10, 12, 16, 0.86);
+  border-left: 5px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+}
+
+.ovb-card.first {
+  border-left-color: #ffd68a;
+}
+
+.ovb-card.on-air {
+  border-left-color: #ef3b3f;
+}
+
+.ovb-rank {
+  grid-row: 1 / span 2;
+  align-self: center;
+  min-width: 28px;
+  font-size: 28px;
+  font-weight: 800;
+  color: #8a95a3;
+  text-align: center;
+}
+
+.ovb-card.first .ovb-rank {
+  color: #ffd68a;
+}
+
+.ovb-name {
+  font-size: 23px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ovb-value {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-size: 22px;
+  color: #ffd68a;
+  text-align: right;
+}
+
+.ovb-detail {
+  grid-column: 2 / span 2;
+  font-size: 17px;
+  color: #aeb7c2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.one-row .ovb-card {
+  row-gap: 6px;
+}
+
+.one-row .ovb-name {
+  font-size: 26px;
+}
+
+.one-row .ovb-detail {
+  font-size: 19px;
+}
+
+.ovb-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 8px 2px 0;
+  border-radius: 50%;
+  background: #4fe08f;
+  box-shadow: 0 0 10px rgba(79, 224, 143, 0.8);
+  vertical-align: middle;
+}
+
+/* Vollbild-Grafik */
+.ovb-full {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 64px 96px 56px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(239, 59, 63, 0.32), transparent 45%),
+    radial-gradient(circle at 92% 100%, rgba(78, 163, 255, 0.22), transparent 50%), #0b0d10;
+  font-variant-numeric: tabular-nums;
+  animation: ovb-fade 0.4s ease both;
+}
+
+.ovb-full-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 22px;
+  margin-bottom: 14px;
+  border-bottom: 4px solid #ef3b3f;
+}
+
+.ovb-kicker {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c7ced6;
+}
+
+.ovb-full-head h1 {
+  margin: 4px 0 0;
+  font-size: 76px;
+  line-height: 1;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ovb-scoring {
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: rgba(255, 214, 138, 0.14);
+  color: #ffd68a;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.ovb-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  font-size: 27px;
+}
+
+.ovb-table th {
+  padding: 4px 16px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a95a3;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ovb-table td {
+  padding: 13px 16px;
+  background: rgba(255, 255, 255, 0.045);
+  white-space: nowrap;
+}
+
+.ovb-table tbody tr {
+  animation: ovb-row 0.45s ease both;
+}
+
+.ovb-table td:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.ovb-table td:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.ovb-table .num {
+  text-align: right;
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+
+.ovb-table th.num {
+  font-family: inherit;
+}
+
+.ovb-table .rank {
+  width: 56px;
+  text-align: center;
+  font-weight: 800;
+  color: #8a95a3;
+}
+
+.ovb-table .name {
+  font-weight: 750;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ovb-table td.value {
+  color: #ffd68a;
+  font-weight: 700;
+  background: rgba(255, 214, 138, 0.08);
+}
+
+.ovb-table tbody tr:first-child td {
+  background: rgba(255, 214, 138, 0.12);
+}
+
+.ovb-table tbody tr:first-child .rank {
+  color: #ffd68a;
+}
+
+.ovb-table tr.on-air td:first-child {
+  box-shadow: inset 6px 0 0 #ef3b3f;
+}
+
+.ovb-table .good {
+  color: #4fe08f;
+}
+
+.ovb-table .bad {
+  color: #ff8a8d;
+}
+
+.ovb-table .accent {
+  color: #ffd68a;
+}
+
+.ovb-table .muted {
+  color: #6f7a87;
+}
+
+.ovb-full.dense .ovb-table {
+  font-size: 22px;
+  border-spacing: 0 4px;
+}
+
+.ovb-full.dense .ovb-table td {
+  padding: 8px 14px;
+}
+
+.ovb-full-foot {
+  margin-top: auto;
+  padding-top: 18px;
+  font-size: 24px;
+  color: #c7ced6;
+}
+
+@keyframes ovb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes ovb-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ovb-row {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}

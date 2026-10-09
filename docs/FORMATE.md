@@ -73,6 +73,7 @@ quiz: {
   panelTitle: 'Punkte',
   tileDetail: (state, feedId) => '…',  // Zusatzzeile in der Multiview-Kachel
   OverlayBoard: QuizBoard, // Tabelle im Overlay und auf dem Pausen-Slate
+  boardData: quizBoardData, // Zeilen/Spalten für Tabellen-Band, Vollbild-Tabelle und Lower Third
 },
 ```
 

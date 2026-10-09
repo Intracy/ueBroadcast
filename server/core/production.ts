@@ -67,6 +67,9 @@ export class Production extends EventEmitter {
   private graphics: GraphicsState = {
     slotLabels: true,
     leaderboard: false,
+    boardStrip: true,
+    boardFull: false,
+    hostBoard: false,
     ticker: true,
     lowerThird: { visible: false, title: '', subtitle: '' },
   };
@@ -548,6 +551,12 @@ export class Production extends EventEmitter {
           // Kommentar-Overlay macht dem Ticker Platz bzw. rutscht wieder nach unten
           queueMicrotask(() => void this.syncObs());
         }
+        if (typeof patch.boardFull === 'boolean' && patch.boardFull !== this.graphics.boardFull) {
+          this.addLog(
+            'graphics',
+            patch.boardFull ? 'Tabelle im Vollbild eingeblendet' : 'Vollbild-Tabelle ausgeblendet',
+          );
+        }
         this.graphics = {
           ...this.graphics,
           ...patch,
@@ -668,7 +677,8 @@ export class Production extends EventEmitter {
       if (typeof data.audioFollow === 'boolean') this.audioFollow = data.audioFollow;
       if (typeof data.autopilotLayoutId === 'string') this.autopilotLayoutId = data.autopilotLayoutId;
       // Autopilot startet aus Sicherheitsgründen immer aus.
-      if (data.graphics) this.graphics = { ...this.graphics, ...data.graphics };
+      // Vollbild-Tabelle startet nie eingeblendet
+      if (data.graphics) this.graphics = { ...this.graphics, ...data.graphics, boardFull: false };
       if (Array.isArray(data.log)) this.log = data.log.slice(-MAX_LOG);
       for (const f of this.feeds) f.lastProgramAt = data.lastProgramAt?.[f.id] ?? null;
       if (data.format !== undefined) this.format.restore(data.format);

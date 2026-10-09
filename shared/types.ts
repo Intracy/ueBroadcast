@@ -105,7 +105,14 @@ export interface LowerThird {
 
 export interface GraphicsState {
   slotLabels: boolean;
+  /** Tabelle rechts über den Feeds */
   leaderboard: boolean;
+  /** Tabellen-Band im freien Platz unter den Feeds (Duell, Haupt + 3 …) */
+  boardStrip: boolean;
+  /** Tabelle als Vollbild-Grafik mit allen Stats */
+  boardFull: boolean;
+  /** Tabelle als Lower Third, solange der Kommentar im Vollbild ist */
+  hostBoard: boolean;
   ticker: boolean;
   lowerThird: LowerThird;
 }

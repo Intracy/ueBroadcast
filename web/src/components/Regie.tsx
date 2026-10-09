@@ -36,6 +36,7 @@ export function Regie({ state, production, offset }: Props) {
   const insights = useMemo(() => new Map(production.insights.map((i) => [i.feedId, i])), [production.insights]);
   const previewLayout = production.layouts.find((l) => l.id === production.preview.layoutId);
   const programLayout = production.layouts.find((l) => l.id === production.program.layoutId);
+  const hasBoard = !!formatUi(production.format).boardData;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(previewLayout?.slots[0]?.id ?? null);
   const [liveMonitors, setLiveMonitors] = useState<{ preview: boolean; program: boolean }>(loadLiveMonitors);
   const toggleLive = (kind: 'preview' | 'program') =>
@@ -71,7 +72,7 @@ export function Regie({ state, production, offset }: Props) {
     if (main) assign(main, feedId);
   };
 
-  // Tastatur: 1–0 Feed in Slot, Enter/Leertaste Take, Layout-Kürzel, ←/→ Slot, M Marker
+  // Tastatur: 1–0 Feed in Slot, Enter/Leertaste Take, Layout-Kürzel, ←/→ Slot, M Marker, L Vollbild-Tabelle
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
@@ -105,6 +106,10 @@ export function Regie({ state, production, offset }: Props) {
         send('marker', { text: 'Highlight' });
         return;
       }
+      if (e.key.toLowerCase() === 'l' && hasBoard) {
+        send('graphics', { patch: { boardFull: !production.graphics.boardFull } });
+        return;
+      }
       const layout = production.layouts.find((l) => l.hotkey && l.hotkey.toLowerCase() === e.key.toLowerCase());
       if (layout) send('preview.layout', { layoutId: layout.id });
     };
@@ -132,6 +137,7 @@ export function Regie({ state, production, offset }: Props) {
             simulation={production.simulation}
             commentary={production.commentary}
             tickerOn={production.graphics.ticker}
+            graphics={hasBoard ? production.graphics : null}
             snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
             live={liveMonitors.preview}
             onToggleLive={() => toggleLive('preview')}
@@ -148,6 +154,16 @@ export function Regie({ state, production, offset }: Props) {
                 ? `letzter Take vor ${sinceTake < 120 ? `${sinceTake} s` : `${Math.round(sinceTake / 60)} min`}`
                 : 'noch kein Take'}
             </div>
+            {hasBoard && (
+              <button
+                className={`btn small board-btn ${production.graphics.boardFull ? 'live' : ''}`}
+                onClick={() => send('graphics', { patch: { boardFull: !production.graphics.boardFull } })}
+                title="Taste L"
+                aria-pressed={production.graphics.boardFull}
+              >
+                <kbd>L</kbd> Tabelle Vollbild
+              </button>
+            )}
             {production.autopilot && <div className="pill warn">Autopilot aktiv</div>}
           </div>
           <Monitor
@@ -161,6 +177,7 @@ export function Regie({ state, production, offset }: Props) {
             simulation={production.simulation}
             commentary={production.commentary}
             tickerOn={production.graphics.ticker}
+            graphics={hasBoard ? production.graphics : null}
             snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
             live={liveMonitors.program}
             onToggleLive={() => toggleLive('program')}
@@ -179,7 +196,7 @@ export function Regie({ state, production, offset }: Props) {
             </button>
           ))}
           <span className="hint muted small">
-            Slot wählen → Feed klicken (1–0) oder ziehen · Enter = Take · K/O = Kommentar · M = Marker
+            Slot wählen → Feed klicken (1–0) oder ziehen · Enter = Take · K/O = Kommentar · M = Marker · L = Tabelle
           </span>
         </div>
 

@@ -3,7 +3,8 @@ import type { FeedInsight, ProductionState } from '../../../shared/types';
 import { formatDelta, timerValue, formatDuration } from '../../../shared/format';
 import { useNow, useStore } from '../api';
 import { formatUi } from '../formats';
-import { TICKER_RESERVE, hostOf, hostRect } from '../../../shared/host';
+import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
+import { BoardFull, BoardLower, BoardStrip } from './Boards';
 
 /** Overlay als OBS-Browserquelle: 1920×1080, transparenter Hintergrund, skaliert auf die Quellgröße. */
 export function Overlay() {
@@ -42,7 +43,10 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
   const insights = new Map(prod.insights.map((i) => [i.feedId, i]));
   const feeds = new Map(prod.feeds.map((f) => [f.id, f]));
   const g = prod.graphics;
-  const Board = formatUi(prod.format).OverlayBoard;
+  const ui = formatUi(prod.format);
+  const Board = ui.OverlayBoard;
+  const board = ui.boardData?.(prod, now, offset) ?? null;
+  const onAir = new Set(Object.values(prod.program.slots).filter((f): f is string => !!f));
   const host = hostOf(prod.program);
   const hostBox =
     prod.commentary && host.mode !== 'off'
@@ -50,7 +54,12 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
       : null;
   const fullHost = host.mode === 'full' && !!hostBox;
   const pause = !fullHost && (!layout || layout.slots.length === 0);
-  const tickerItems = g.ticker ? tickerCandidates(prod) : [];
+  const boardFull = g.boardFull && !!board;
+  const tickerItems = g.ticker && !boardFull ? tickerCandidates(prod) : [];
+  // Tabellen-Band im freien Platz unter den Feeds; die Bauchbinde hat Vorrang
+  const band = !pause && !fullHost && g.boardStrip && board ? boardBand(layout, g.ticker) : null;
+  const showBand = !!band && !g.lowerThird.visible;
+  const hostBoard = fullHost && g.hostBoard && !!board;
   // Namensschilder unten nicht unter den Ticker schieben
   const bottomEdge = tickerItems.length > 0 ? 1 - 72 / 1080 : 1;
 
@@ -120,14 +129,20 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
           <span className="ov-host-tag">{prod.commentary.label}</span>
         </div>
       )}
+      {showBand && board && <BoardStrip data={board} rect={band!} onAir={onAir} />}
+
+      {hostBoard && board && <BoardLower data={board} onAir={onAir} tickerOn={tickerItems.length > 0} />}
+
       {fullHost && prod.commentary && !g.lowerThird.visible && (
-        <div className="ov-host-full">
+        <div className={`ov-host-full ${hostBoard ? 'raised' : ''}`}>
           <span className="ov-host-kicker">Kommentar</span>
           <span className="ov-host-names">{prod.commentary.label}</span>
         </div>
       )}
 
-      <div className={`ov-lower ${g.lowerThird.visible ? 'show' : ''}`}>
+      {boardFull && board && <BoardFull data={board} eventName={prod.name} onAir={onAir} />}
+
+      <div className={`ov-lower ${g.lowerThird.visible ? 'show' : ''} ${hostBoard && !boardFull ? 'raised' : ''}`}>
         <div className="ov-lower-title">{g.lowerThird.title}</div>
         {g.lowerThird.subtitle && <div className="ov-lower-sub">{g.lowerThird.subtitle}</div>}
       </div>
