@@ -164,6 +164,23 @@ export class UebApp extends EventEmitter {
     this.emit('change');
   }
 
+  /** Simulation der aktiven Produktion schalten, in der Produktionsdatei merken und neu laden. */
+  async setSimulation(enabled: boolean): Promise<void> {
+    if (!this.active) throw new ActionError('Keine Produktion aktiv');
+    const id = this.active.config.id;
+    const original = this.configs.find((c) => c.id === id);
+    const file = this.configFiles.get(id);
+    if (!original || !file) throw new ActionError('Konfigurationsdatei der Produktion nicht gefunden');
+    if (this.active.simulation === enabled) return;
+    const next: ProductionConfig = { ...original, simulation: { ...(original.simulation ?? {}), enabled } };
+    writeJsonFile(file, next);
+    this.configs = this.configs.map((c) => (c.id === id ? next : c));
+    this.activate(id);
+    this.active!.addLog('simulation', enabled ? 'Simulation eingeschaltet' : 'Simulation ausgeschaltet – Echtbetrieb');
+    if (this.obs.active && this.obs.status.setupDone) await this.active!.syncObs();
+    this.emit('change');
+  }
+
   summaries(): ProductionSummary[] {
     return this.configs.map((c) => ({
       id: c.id,
@@ -209,6 +226,9 @@ export class UebApp extends EventEmitter {
       }
       case 'obs.reconnect':
         await this.obs.reconnect();
+        return;
+      case 'simulation.set':
+        await this.setSimulation(!!p.enabled);
         return;
     }
     if (!this.active) throw new ActionError('Keine Produktion aktiv');

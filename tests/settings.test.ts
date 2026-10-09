@@ -111,6 +111,23 @@ describe('Einstellungen: App', () => {
   });
 });
 
+describe('Simulationsschalter', () => {
+  it('schaltet die Simulation um, merkt sie in der Datei und lädt die Produktion neu', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ueb-'));
+    writeFileSync(join(dir, 'test.json'), JSON.stringify(baseConfig));
+    const app = new UebApp(appCfg, { productionsDir: dir, persist: false, settingsFile: join(dir, 's.json') });
+    app.start();
+    expect(app.getState().production!.simulation).toBe(true);
+    await app.handleAction('simulation.set', { enabled: false });
+    expect(app.getState().production!.simulation).toBe(false);
+    expect(app.getState().production!.feeds.every((f) => f.status === 'unknown')).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, 'test.json'), 'utf8')).simulation).toEqual({ enabled: false, speed: 6 });
+    await app.handleAction('simulation.set', { enabled: true });
+    expect(app.getState().production!.simulation).toBe(true);
+    await app.stop();
+  });
+});
+
 describe('Hilfsfunktionen', () => {
   it('schlägt freie IDs vor und leitet Ingest-Adressen ab', () => {
     expect(nextFeedId(['r01', 'r02', 'r04'])).toBe('r03');

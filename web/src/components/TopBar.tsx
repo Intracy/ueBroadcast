@@ -1,4 +1,5 @@
 import type { AppState } from '../../../shared/types';
+import { useEffect, useState } from 'react';
 import { send, useNow } from '../api';
 import { formatUi } from '../formats';
 
@@ -49,7 +50,7 @@ export function TopBar({ state, connected, route, go, offset }: Props) {
         <div className="prod-title">
           <strong>{prod.name}</strong>
           <span className="muted">{prod.formatName}</span>
-          {prod.simulation && <span className="pill warn">Simulation</span>}
+          <SimulationSwitch on={prod.simulation} />
         </div>
       )}
       <div className="topbar-right">
@@ -107,5 +108,54 @@ function GearIcon() {
         d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 0-.5.4l-.4 2.7a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5a.5.5 0 0 0 .6.2l2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.4l.4-2.7a7.6 7.6 0 0 0 1.7-1l2.5 1a.5.5 0 0 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"
       />
     </svg>
+  );
+}
+
+/** Schalter für den Simulationsmodus – mit Rückfrage, damit niemand während der Sendung versehentlich umschaltet. */
+function SimulationSwitch({ on }: { on: boolean }) {
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    if (!asking) return;
+    const t = setTimeout(() => setAsking(false), 6000);
+    return () => clearTimeout(t);
+  }, [asking]);
+  useEffect(() => setAsking(false), [on]);
+
+  if (asking) {
+    return (
+      <span className="sim-confirm" role="group" aria-label="Simulation umschalten">
+        <span>{on ? 'Simulation beenden?' : 'Simulation starten?'}</span>
+        <button
+          className="mini confirm"
+          onClick={() => {
+            send('simulation.set', { enabled: !on });
+            setAsking(false);
+          }}
+        >
+          {on ? 'Ja, Echtbetrieb' : 'Ja, simulieren'}
+        </button>
+        <button className="mini" onClick={() => setAsking(false)}>
+          Abbrechen
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button
+      className={`sim-switch ${on ? 'on' : ''}`}
+      role="switch"
+      aria-checked={on}
+      onClick={() => setAsking(true)}
+      title={
+        on
+          ? 'Simulation läuft: Runs und Signale sind erfunden. Klicken zum Ausschalten.'
+          : 'Echtbetrieb. Klicken, um zum Proben die Simulation einzuschalten.'
+      }
+    >
+      <span className="sim-track" aria-hidden="true">
+        <span className="sim-knob" />
+      </span>
+      {on ? 'Simulation' : 'Live-Betrieb'}
+    </button>
   );
 }

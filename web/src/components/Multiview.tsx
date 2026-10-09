@@ -69,7 +69,7 @@ function FeedTile({
   onPick: () => void;
 }) {
   const hotkey = index < 9 ? String(index + 1) : index === 9 ? '0' : null;
-  const showVideo = !!feed.previewUrl && !simulation && feed.status !== 'offline';
+  const showVideo = !!feed.previewUrl && !simulation && feed.status === 'live';
   const cls = ['tile', feed.onProgram ? 'on-program' : '', feed.inPreview ? 'in-preview' : '', `status-${feed.status}`]
     .filter(Boolean)
     .join(' ');

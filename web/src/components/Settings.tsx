@@ -75,7 +75,7 @@ export function Settings({ state, tab, go }: Props) {
     apiRequest<SettingsResponse>('/api/settings').then(apply, (err) => setError(err.message));
   }, [apply]);
 
-  useEffect(reload, [reload, production?.id]);
+  useEffect(reload, [reload, production?.id, production?.simulation]);
 
   const prodDirty = !!loaded?.production && JSON.stringify(prodDraft) !== JSON.stringify(loaded.production);
   const appDirty = !!loaded && !!appDraft && JSON.stringify(appDraft) !== JSON.stringify(appDraftFrom(loaded));

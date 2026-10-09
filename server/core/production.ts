@@ -496,8 +496,9 @@ export class Production extends EventEmitter {
 
   // ---------------------------------------------------------------- Persistence
 
+  /** Simulation und Echtbetrieb speichern getrennt – simulierte Runs landen nie in den echten Event-Daten. */
   private get dataFile(): string {
-    return join(DATA_DIR, `${this.config.id}.json`);
+    return join(DATA_DIR, `${this.config.id}${this.simulation ? '.simulation' : ''}.json`);
   }
 
   private scheduleSave(): void {
