@@ -167,6 +167,8 @@ export interface ProductionState {
 
 export interface AppState {
   version: string;
+  /** Kennung des ausgelieferten Web-Builds; ändert sie sich, laden Regie und Overlay neu */
+  build: string | null;
   serverTime: number;
   obs: ObsStatus;
   twitch: { configured: boolean; title: string | null };

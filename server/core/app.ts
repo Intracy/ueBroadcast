@@ -15,6 +15,7 @@ import { ObsController } from '../obs/obsController';
 import { TwitchClient } from '../integrations/twitch';
 import { FORMATS, formatById } from '../formats';
 import { ActionError } from '../formats/types';
+import { webBuildId } from './build';
 
 export const VERSION = '0.1.0';
 
@@ -26,6 +27,8 @@ export class UebApp extends EventEmitter {
   configErrors: string[] = [];
   configFiles = new Map<string, string>();
   active: Production | null = null;
+  private buildTimer: NodeJS.Timeout | null = null;
+  private lastBuild: string | null = null;
 
   constructor(
     public cfg: AppConfig,
@@ -48,9 +51,21 @@ export class UebApp extends EventEmitter {
       this.configs[0];
     if (initial) this.activate(initial.id);
     this.obs.start();
+    // Neuer Web-Build (Update): Clients laden über die Build-Kennung neu, OBS frischt die Overlay-Quelle auf
+    this.lastBuild = webBuildId();
+    this.buildTimer = setInterval(() => {
+      const build = webBuildId();
+      if (build === this.lastBuild) return;
+      this.lastBuild = build;
+      this.active?.addLog('system', 'Neue Oberfläche ausgeliefert – Regie und Overlay laden neu');
+      this.emit('change');
+      void this.obs.reloadOverlay();
+    }, 3000);
+    this.buildTimer.unref?.();
   }
 
   async stop(): Promise<void> {
+    if (this.buildTimer) clearInterval(this.buildTimer);
     this.active?.stop();
     await this.obs.stop();
   }
@@ -195,6 +210,7 @@ export class UebApp extends EventEmitter {
   getState(): AppState {
     return {
       version: VERSION,
+      build: webBuildId(),
       serverTime: Date.now(),
       obs: this.obs.status,
       twitch: { configured: this.twitch.configured, title: this.twitch.title },

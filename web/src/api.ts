@@ -44,11 +44,30 @@ function connect() {
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data as string) as ServerMessage;
     if (msg.type === 'state') {
+      checkBuild(msg.state.build);
       set({ state: msg.state, offset: msg.state.serverTime - Date.now() });
     } else if (msg.type === 'error') {
       pushToast('error', msg.message);
     }
   };
+}
+
+// Neue Oberfläche ausgeliefert (Update): Seite neu laden, damit Regie und OBS-Overlay aktuell sind
+let firstBuild: string | null | undefined;
+let reloadPending = false;
+function checkBuild(build: string | null | undefined) {
+  if (firstBuild === undefined) {
+    firstBuild = build ?? null;
+    return;
+  }
+  if (!build || build === firstBuild || reloadPending) return;
+  reloadPending = true;
+  if (location.hash.includes('einstellungen')) {
+    // Ungespeicherte Einstellungen nicht wegwerfen
+    pushToast('ok', 'Neue Version von ueBroadcast – Seite bitte neu laden');
+    return;
+  }
+  setTimeout(() => location.reload(), 400);
 }
 
 let started = false;

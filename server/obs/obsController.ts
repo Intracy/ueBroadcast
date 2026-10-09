@@ -144,6 +144,8 @@ export class ObsController extends EventEmitter {
       this.update({ connected: true, error: null });
       this.emit('log', `OBS verbunden (${this.url})`);
       await this.refresh();
+      // Overlay frisch laden: Die Browserquelle hält sonst eine ältere Version der Grafik im Speicher
+      await this.reloadOverlay();
       this.emit('connected');
     } catch (err) {
       this.update({ connected: false, error: err instanceof Error ? err.message : String(err) });
@@ -174,6 +176,21 @@ export class ObsController extends EventEmitter {
     }>;
     const failed = results.find((r) => r.requestStatus && !r.requestStatus.result);
     if (failed) throw new Error(failed.requestStatus?.comment ?? 'OBS-Anfrage fehlgeschlagen');
+  }
+
+  /** Lädt die Overlay-Browserquelle neu (ohne Cache). */
+  async reloadOverlay(): Promise<boolean> {
+    if (!this.active || !this.obs) return false;
+    try {
+      const { inputs } = await this.call<{ inputs: Array<{ inputName: string }> }>('GetInputList');
+      if (!inputs.some((i) => i.inputName === OVERLAY_INPUT)) return false;
+      await this.call('PressInputPropertiesButton', { inputName: OVERLAY_INPUT, propertyName: 'refreshnocache' });
+      this.emit('log', 'Overlay in OBS neu geladen');
+      return true;
+    } catch (err) {
+      this.emit('log', `Overlay neu laden fehlgeschlagen: ${err instanceof Error ? err.message : err}`);
+      return false;
+    }
   }
 
   private async refresh(): Promise<void> {
@@ -315,7 +332,10 @@ export class ObsController extends EventEmitter {
       });
       notes.push('Overlay-Browserquelle angelegt');
     } else {
-      await this.call('SetInputSettings', { inputName: OVERLAY_INPUT, inputSettings: { url: this.spec.overlayUrl } });
+      await this.call('SetInputSettings', {
+        inputName: OVERLAY_INPUT,
+        inputSettings: { url: this.spec.overlayUrl, width: this.canvas.width, height: this.canvas.height },
+      });
     }
     await ensureInScenes(OVERLAY_INPUT, true);
 
@@ -345,11 +365,35 @@ export class ObsController extends EventEmitter {
           sceneItemId: overlay.sceneItemId,
           sceneItemIndex: top,
         });
+        // Overlay deckt immer die ganze Leinwand ab: unverschoben, unskaliert, ungeschnitten, sichtbar
+        await this.call('SetSceneItemTransform', {
+          sceneName: scene,
+          sceneItemId: overlay.sceneItemId,
+          sceneItemTransform: {
+            positionX: 0,
+            positionY: 0,
+            alignment: 5,
+            rotation: 0,
+            scaleX: 1,
+            scaleY: 1,
+            cropLeft: 0,
+            cropRight: 0,
+            cropTop: 0,
+            cropBottom: 0,
+            boundsType: 'OBS_BOUNDS_NONE',
+          },
+        });
+        await this.call('SetSceneItemEnabled', {
+          sceneName: scene,
+          sceneItemId: overlay.sceneItemId,
+          sceneItemEnabled: true,
+        });
       }
     }
 
     await this.refresh();
     this.update({ setupDone: true });
+    await this.reloadOverlay();
     return notes;
   }
 
