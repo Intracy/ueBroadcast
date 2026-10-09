@@ -2242,3 +2242,22 @@ input[type='range'] {
 .host-box.label-top {
   align-items: flex-start;
 }
+
+/* Vorschaubild aus OBS */
+img.live-frame.obs-frame {
+  object-fit: contain;
+  user-select: none;
+}
+
+.live-frame.obs-frame.loading {
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent) 0 0 / 200% 100%,
+    #060708;
+  animation: obs-frame-wait 1.4s linear infinite;
+}
+
+@keyframes obs-frame-wait {
+  to {
+    background-position: -200% 0;
+  }
+}

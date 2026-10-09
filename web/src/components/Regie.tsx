@@ -37,6 +37,7 @@ export function Regie({ state, production, offset }: Props) {
   const previewLayout = production.layouts.find((l) => l.id === production.preview.layoutId);
   const programLayout = production.layouts.find((l) => l.id === production.program.layoutId);
   const hasBoard = !!formatUi(production.format).boardData;
+  const obsFrames = state.obs.mode === 'obs' && state.obs.connected && state.obs.setupDone;
   const board = formatUi(production.format).boardData?.(production, now, offset) ?? null;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(previewLayout?.slots[0]?.id ?? null);
   const [liveMonitors, setLiveMonitors] = useState<{ preview: boolean; program: boolean }>(loadLiveMonitors);
@@ -142,6 +143,7 @@ export function Regie({ state, production, offset }: Props) {
             board={board}
             eventName={production.name}
             snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
+            obsFrames={obsFrames}
             live={liveMonitors.preview}
             onToggleLive={() => toggleLive('preview')}
           />
@@ -184,6 +186,7 @@ export function Regie({ state, production, offset }: Props) {
             board={board}
             eventName={production.name}
             snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
+            obsFrames={obsFrames}
             live={liveMonitors.program}
             onToggleLive={() => toggleLive('program')}
           />
@@ -207,7 +210,14 @@ export function Regie({ state, production, offset }: Props) {
 
         <CommentaryBar production={production} obs={state.obs} />
 
-        <Multiview production={production} insights={insights} now={now} offset={offset} onPick={pick} />
+        <Multiview
+          production={production}
+          insights={insights}
+          now={now}
+          offset={offset}
+          onPick={pick}
+          obsFrames={obsFrames}
+        />
       </div>
 
       <aside className="regie-side">

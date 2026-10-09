@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { FeedState } from '../../../shared/types';
 
 /** Startzeit aus YouTube-Links („t=90“, „t=1m30s“) in Sekunden. */
@@ -167,3 +167,95 @@ export const LiveFrame = memo(function LiveFrame({
     />
   );
 });
+
+/** VDO.Ninja-Links sind für die Einbettung gebaut und laufen mit geringster Verzögerung direkt. */
+export function isNinjaUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    return /(^|\.)(vdo|obs)\.ninja$/i.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+export type LiveMode = 'embed' | 'obs' | null;
+
+/**
+ * Wie die Regie das Live-Bild eines Feeds zeigt:
+ * - `embed`: Link direkt einbetten (VDO.Ninja immer; andere Links, wenn OBS nicht verbunden ist)
+ * - `obs`: das Bild, das OBS von der Quelle rendert – zuverlässig für YouTube, Twitch & Co., die
+ *   eingebettet oft nicht oder nur auf Klick abspielen, und ohne zusätzliche Last bei den Runnern
+ */
+export function liveMode(feed: FeedState | undefined, simulation: boolean, obsFrames: boolean): LiveMode {
+  if (!feed || !canShowLive(feed, simulation)) return null;
+  if (isNinjaUrl(feed.previewUrl)) return 'embed';
+  if (obsFrames && feed.sourceKind !== 'none') return 'obs';
+  return 'embed';
+}
+
+/**
+ * Laufendes Vorschaubild aus OBS: holt nacheinander Einzelbilder (~4 pro Sekunde), solange die Seite
+ * sichtbar ist. Der Server teilt die Bilder zwischen allen Anzeigen.
+ */
+export const ObsFrame = memo(function ObsFrame({ feedId, width }: { feedId: string; width: number }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let current: string | null = null;
+    const schedule = (ms: number) => {
+      if (!stopped) timer = setTimeout(next, ms);
+    };
+    const next = async () => {
+      if (stopped) return;
+      if (document.hidden) return schedule(1000);
+      const started = performance.now();
+      try {
+        const res = await fetch(`/api/feeds/${encodeURIComponent(feedId)}/frame?w=${width}`, { cache: 'no-store' });
+        if (res.status !== 200) return schedule(2000);
+        const blob = await res.blob();
+        if (stopped) return;
+        const url = URL.createObjectURL(blob);
+        setSrc(url);
+        // Vorheriges Bild erst freigeben, wenn das neue gesetzt ist
+        if (current) {
+          const old = current;
+          setTimeout(() => URL.revokeObjectURL(old), 1000);
+        }
+        current = url;
+        schedule(Math.max(0, 250 - (performance.now() - started)));
+      } catch {
+        schedule(2000);
+      }
+    };
+    void next();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      if (current) URL.revokeObjectURL(current);
+    };
+  }, [feedId, width]);
+  return src ? (
+    <img className="live-frame obs-frame" src={src} alt="" draggable={false} />
+  ) : (
+    <div className="live-frame obs-frame loading" />
+  );
+});
+
+/** Live-Bild eines Feeds im passenden Modus (eingebettet oder aus OBS). */
+export function LiveFeed({
+  feed,
+  mode,
+  width,
+  bitrateKbps,
+  scalePct,
+}: {
+  feed: FeedState;
+  mode: Exclude<LiveMode, null>;
+  width: number;
+  bitrateKbps?: number;
+  scalePct?: number;
+}) {
+  if (mode === 'obs') return <ObsFrame feedId={feed.id} width={width} />;
+  return <LiveFrame url={feed.previewUrl!} label={feed.label} bitrateKbps={bitrateKbps} scalePct={scalePct} />;
+}

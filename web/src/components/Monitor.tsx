@@ -10,7 +10,7 @@ import type {
 import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
 import { useCommentarySnapshot } from './Commentary';
 import { DeltaText, TimerText } from './bits';
-import { LiveFrame, canShowLive } from './LiveFrame';
+import { LiveFeed, liveMode } from './LiveFrame';
 import type { BoardData } from '../formats/board';
 import { BoardFull, BoardLower, BoardStrip } from '../overlay/Boards';
 
@@ -39,6 +39,8 @@ interface Props {
   eventName?: string;
   /** OBS verbunden – Standbild der Kommentar-Szene abrufbar */
   snapshotAvailable: boolean;
+  /** OBS verbunden und eingerichtet: Vorschaubilder der Feeds aus OBS möglich */
+  obsFrames?: boolean;
 }
 
 /** Vorschau/Programm-Monitor: zeigt das Layout mit den belegten Slots, auf Wunsch mit Live-Bild. */
@@ -62,6 +64,7 @@ export function Monitor({
   board,
   eventName = '',
   snapshotAvailable,
+  obsFrames = false,
 }: Props) {
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
   const host = hostOf(comp);
@@ -125,14 +128,20 @@ export function Monitor({
               }}
               title={onSelectSlot ? 'Slot wählen, dann Feed anklicken oder Feed hierher ziehen' : undefined}
             >
-              {live && host.mode !== 'full' && canShowLive(feed, simulation) && (
-                <LiveFrame
-                  url={feed!.previewUrl!}
-                  label={feed!.label}
-                  bitrateKbps={kind === 'program' ? 1500 : 1000}
-                  scalePct={kind === 'program' ? 66 : 50}
-                />
-              )}
+              {live &&
+                host.mode !== 'full' &&
+                (() => {
+                  const mode = liveMode(feed, simulation, obsFrames);
+                  return mode ? (
+                    <LiveFeed
+                      feed={feed!}
+                      mode={mode}
+                      width={slot.w >= 0.5 ? 960 : 480}
+                      bitrateKbps={kind === 'program' ? 1500 : 1000}
+                      scalePct={kind === 'program' ? 66 : 50}
+                    />
+                  ) : null;
+                })()}
               {i === 0 && layout.slots.length > 1 && <span className="slot-main">Haupt</span>}
               {feed ? (
                 <div className="slot-info">

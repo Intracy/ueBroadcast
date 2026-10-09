@@ -2,7 +2,7 @@ import type { FeedInsight, FeedState, ProductionState } from '../../../shared/ty
 import { send } from '../api';
 import { formatUi } from '../formats';
 import { DeltaText, ScoreBadge, TimerText } from './bits';
-import { LiveFrame, canShowLive } from './LiveFrame';
+import { LiveFeed, liveMode } from './LiveFrame';
 
 interface Props {
   production: ProductionState;
@@ -10,9 +10,11 @@ interface Props {
   now: number;
   offset: number;
   onPick: (feedId: string) => void;
+  /** OBS verbunden und eingerichtet: Vorschaubilder aus OBS möglich */
+  obsFrames: boolean;
 }
 
-export function Multiview({ production, insights, now, offset, onPick }: Props) {
+export function Multiview({ production, insights, now, offset, onPick, obsFrames }: Props) {
   const ui = formatUi(production.format);
   return (
     <section className="multiview" aria-label="Multiview">
@@ -24,6 +26,7 @@ export function Multiview({ production, insights, now, offset, onPick }: Props) 
           insight={insights.get(feed.id)}
           detail={ui.tileDetail?.(production.formatState, feed.id) ?? null}
           simulation={production.simulation}
+          obsFrames={obsFrames}
           now={now}
           offset={offset}
           onPick={() => onPick(feed.id)}
@@ -39,6 +42,7 @@ function FeedTile({
   insight,
   detail,
   simulation,
+  obsFrames,
   now,
   offset,
   onPick,
@@ -48,12 +52,13 @@ function FeedTile({
   insight: FeedInsight | undefined;
   detail: string | null;
   simulation: boolean;
+  obsFrames: boolean;
   now: number;
   offset: number;
   onPick: () => void;
 }) {
   const hotkey = index < 9 ? String(index + 1) : index === 9 ? '0' : null;
-  const showVideo = canShowLive(feed, simulation);
+  const mode = liveMode(feed, simulation, obsFrames);
   const cls = ['tile', feed.onProgram ? 'on-program' : '', feed.inPreview ? 'in-preview' : '', `status-${feed.status}`]
     .filter(Boolean)
     .join(' ');
@@ -74,8 +79,8 @@ function FeedTile({
       aria-label={`${feed.label} in die Vorschau`}
     >
       <div className="tile-video">
-        {showVideo ? (
-          <LiveFrame url={feed.previewUrl!} label={feed.label} bitrateKbps={600} scalePct={35} />
+        {mode ? (
+          <LiveFeed feed={feed} mode={mode} width={480} bitrateKbps={600} scalePct={35} />
         ) : (
           <div className={`tile-placeholder hue-${index % 6}`}>
             {feed.status === 'offline' ? (
