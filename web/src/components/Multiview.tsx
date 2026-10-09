@@ -87,7 +87,7 @@ function FeedTile({
     >
       <div className="tile-video">
         {showVideo ? (
-          <LiveFrame feed={feed} bitrateKbps={800} />
+          <LiveFrame url={feed.previewUrl!} label={feed.label} bitrateKbps={600} scalePct={35} />
         ) : (
           <div className={`tile-placeholder hue-${index % 6}`}>
             {feed.status === 'offline' ? (

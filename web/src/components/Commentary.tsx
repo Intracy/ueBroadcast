@@ -13,10 +13,11 @@ let loading = false;
 const listeners = new Set<() => void>();
 
 function poll() {
-  if (loading) return;
+  // Tab im Hintergrund: OBS nicht unnötig beschäftigen
+  if (loading || document.hidden) return;
   loading = true;
   const img = new Image();
-  const url = `/api/obs/screenshot?width=480&t=${Date.now()}`;
+  const url = `/api/obs/screenshot?width=320&t=${Date.now()}`;
   img.onload = () => {
     loading = false;
     if (img.naturalWidth > 0) {
@@ -34,14 +35,14 @@ function poll() {
   img.src = url;
 }
 
-/** Vorschaubild der Kommentar-Szene, einmal pro Sekunde aus OBS geholt (alle Anzeigen teilen sich die Abfrage). */
+/** Vorschaubild der Kommentar-Szene, alle 2 Sekunden aus OBS geholt (alle Anzeigen teilen sich die Abfrage). */
 export function useCommentarySnapshot(enabled: boolean): string | null {
   useEffect(() => {
     if (!enabled) return;
     subscribers += 1;
     if (!timer) {
       poll();
-      timer = setInterval(poll, 1000);
+      timer = setInterval(poll, 2000);
     }
     return () => {
       subscribers -= 1;

@@ -97,7 +97,12 @@ export function Monitor({
               title={onSelectSlot ? 'Slot wählen, dann Feed anklicken oder Feed hierher ziehen' : undefined}
             >
               {live && host.mode !== 'full' && canShowLive(feed, simulation) && (
-                <LiveFrame feed={feed!} bitrateKbps={kind === 'program' ? 2000 : 1200} />
+                <LiveFrame
+                  url={feed!.previewUrl!}
+                  label={feed!.label}
+                  bitrateKbps={kind === 'program' ? 1500 : 1000}
+                  scalePct={kind === 'program' ? 66 : 50}
+                />
               )}
               {i === 0 && layout.slots.length > 1 && <span className="slot-main">Haupt</span>}
               {feed ? (

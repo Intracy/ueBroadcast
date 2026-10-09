@@ -221,8 +221,9 @@ export class ObsController extends EventEmitter {
         notes.push(`Szene „${scene}“ angelegt`);
       }
     }
-    const { inputs } = await this.call<{ inputs: Array<{ inputName: string }> }>('GetInputList');
+    const { inputs } = await this.call<{ inputs: Array<{ inputName: string; inputKind?: string }> }>('GetInputList');
     const inputNames = new Set(inputs.map((i) => i.inputName));
+    const inputKinds = new Map(inputs.map((i) => [i.inputName, i.inputKind ?? '']));
     const itemsIn = async (scene: string) => {
       const { sceneItems } = await this.call<{ sceneItems: Array<{ sourceName: string }> }>('GetSceneItemList', {
         sceneName: scene,
@@ -240,6 +241,14 @@ export class ObsController extends EventEmitter {
 
     for (const feed of this.spec.feeds) {
       const name = feedInputName(feed.id);
+      const wantedKind = feed.source?.kind === 'media' ? 'ffmpeg_source' : feed.source ? 'browser_source' : null;
+      const currentKind = inputKinds.get(name);
+      if (inputNames.has(name) && wantedKind && currentKind && currentKind !== wantedKind) {
+        // Signalart gewechselt (Stream ↔ Browser-Link): Quelle neu anlegen
+        await this.call('RemoveInput', { inputName: name });
+        inputNames.delete(name);
+        notes.push(`Quelle „${name}“ neu angelegt (Signalart geändert)`);
+      }
       if (inputNames.has(name) && feed.source) {
         // Adresse aktuell halten, falls sie in den Einstellungen geändert wurde
         await this.call(
@@ -416,6 +425,11 @@ export class ObsController extends EventEmitter {
     } else {
       await this.call('SetCurrentProgramScene', { sceneName: target });
     }
+  }
+
+  /** Liegt die Quelle/Szene in beiden Programm-Szenen? */
+  hasProgramItem(sourceName: string): boolean {
+    return this.itemIds.has(`${SCENE_A}|${sourceName}`) && this.itemIds.has(`${SCENE_B}|${sourceName}`);
   }
 
   /** Namen aller Szenen in OBS (für die Auswahl der Kommentar-Szene). */

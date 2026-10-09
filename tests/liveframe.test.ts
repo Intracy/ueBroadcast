@@ -17,13 +17,13 @@ const feed = (extra: Partial<FeedState>): FeedState => ({
 
 describe('Live-Bild in der Regie', () => {
   it('ergänzt VDO.Ninja-Links um stumm, ohne Bedienelemente und begrenzte Bitrate', () => {
-    const src = previewSrc('https://vdo.ninja/?view=j5WYcBi&solo=1&room=N64&password=n64', 800);
+    const src = previewSrc('https://vdo.ninja/?view=j5WYcBi&solo=1&room=N64&password=n64', 800, 35);
     expect(src).toBe(
-      'https://vdo.ninja/?view=j5WYcBi&solo=1&room=N64&password=n64&noaudio&cleanoutput&videobitrate=800',
+      'https://vdo.ninja/?view=j5WYcBi&solo=1&room=N64&password=n64&noaudio&cleanoutput&videobitrate=800&scale=35',
     );
     // Vorhandene Angaben bleiben unangetastet
-    expect(previewSrc('https://vdo.ninja/?view=a&videobitrate=300&noaudio&clean')).toBe(
-      'https://vdo.ninja/?view=a&videobitrate=300&noaudio&clean',
+    expect(previewSrc('https://vdo.ninja/?view=a&videobitrate=300&noaudio&clean&scale=20')).toBe(
+      'https://vdo.ninja/?view=a&videobitrate=300&noaudio&clean&scale=20',
     );
   });
 

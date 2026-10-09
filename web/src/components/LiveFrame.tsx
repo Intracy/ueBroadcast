@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { FeedState } from '../../../shared/types';
 
 /**
@@ -5,7 +6,7 @@ import type { FeedState } from '../../../shared/types';
  * - VDO.Ninja: ohne Ton, ohne Bedienelemente, mit begrenzter Bitrate (schont den Upload des Runners)
  * - MediaMTX-WebRTC-Seite: ohne Bedienelemente, stumm, Autoplay
  */
-export function previewSrc(url: string, bitrateKbps = 1200): string {
+export function previewSrc(url: string, bitrateKbps = 1200, scalePct = 50): string {
   let u: URL;
   try {
     u = new URL(url);
@@ -17,6 +18,8 @@ export function previewSrc(url: string, bitrateKbps = 1200): string {
     if (!has('noaudio')) u.searchParams.set('noaudio', '');
     if (!has('cleanoutput') && !has('clean')) u.searchParams.set('cleanoutput', '');
     if (!has('videobitrate')) u.searchParams.set('videobitrate', String(bitrateKbps));
+    // Auflösung beim Empfang verkleinern: spart Rechenleistung im Browser und Upload beim Runner
+    if (!has('scale')) u.searchParams.set('scale', String(scalePct));
     // VDO.Ninja erwartet Schalter ohne „=“
     return u.toString().replace(/=(?=&|$)/g, '');
   }
@@ -36,16 +39,29 @@ export function canShowLive(feed: FeedState | undefined, simulation: boolean): b
   return feed.sourceKind === 'browser' && feed.status !== 'offline';
 }
 
-/** Live-Bild eines Feeds als eingebettete Seite (VDO.Ninja, MediaMTX-WebRTC …). */
-export function LiveFrame({ feed, bitrateKbps }: { feed: FeedState; bitrateKbps?: number }) {
+/**
+ * Live-Bild eines Feeds als eingebettete Seite (VDO.Ninja, MediaMTX-WebRTC …).
+ * Memo: Die Regie zeichnet mehrmals pro Sekunde neu (Timer) – das Bild selbst darf davon nichts merken.
+ */
+export const LiveFrame = memo(function LiveFrame({
+  url,
+  label,
+  bitrateKbps,
+  scalePct,
+}: {
+  url: string;
+  label: string;
+  bitrateKbps?: number;
+  scalePct?: number;
+}) {
   return (
     <iframe
       className="live-frame"
-      src={previewSrc(feed.previewUrl!, bitrateKbps)}
-      title={`Live-Bild ${feed.label}`}
+      src={previewSrc(url, bitrateKbps, scalePct)}
+      title={`Live-Bild ${label}`}
       allow="autoplay; fullscreen"
       tabIndex={-1}
       loading="eager"
     />
   );
-}
+});

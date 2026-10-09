@@ -154,6 +154,19 @@ export class Production extends EventEmitter {
   async syncObs(): Promise<void> {
     const layout = this.layoutById(this.program.layoutId);
     if (!layout || !this.deps.obs.status.setupDone) return;
+    // Kommentar-Szene noch nicht eingebettet (z. B. nachträglich eingerichtet) → automatisch nachholen
+    const commentary = this.commentary;
+    if (commentary && this.deps.obs.active && !this.deps.obs.hasProgramItem(commentary.obsScene)) {
+      try {
+        const notes = await this.deps.obs.setup();
+        for (const n of notes) this.addLog('obs', n);
+        if (this.deps.obs.hasProgramItem(commentary.obsScene)) {
+          this.addLog('obs', `Kommentar-Szene „${commentary.obsScene}“ eingebettet`);
+        }
+      } catch (err) {
+        this.obsError(err);
+      }
+    }
     await this.deps.obs.applyProgram(layout, this.program, this.hostBox(this.program)).catch((e) => this.obsError(e));
     await this.applyAudio();
   }
