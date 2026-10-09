@@ -74,6 +74,8 @@ export function Monitor({
       : null;
   const lowerBoard = !!board && !!graphics?.hostBoard && host.mode === 'full' && !!box;
   const fullBoard = kind === 'program' && !!board && !!graphics?.boardFull;
+  // Live-Bild-Schalter auch in der Simulation, sobald Runner Links hinterlegt haben
+  const hasLinks = [...feeds.values()].some((f) => !!f.previewUrl);
   const onAir = new Set(Object.values(comp.slots).filter((f): f is string => !!f));
   return (
     <div className={`monitor ${kind}`}>
@@ -81,7 +83,7 @@ export function Monitor({
         <span className="tally" />
         <strong>{title}</strong>
         <span className="muted">{layout?.name ?? comp.layoutId}</span>
-        {!simulation && (
+        {(!simulation || hasLinks) && (
           <button
             className={`live-toggle ${live ? 'on' : ''}`}
             onClick={onToggleLive}

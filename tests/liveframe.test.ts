@@ -36,7 +36,13 @@ describe('Live-Bild in der Regie', () => {
   it('zeigt VDO.Ninja-Bilder auch ohne Statusmeldung, Ingest-Feeds nur mit Signal', () => {
     expect(canShowLive(feed({}), false)).toBe(true);
     expect(canShowLive(feed({ status: 'offline' }), false)).toBe(false);
-    expect(canShowLive(feed({}), true)).toBe(false);
+    // Simulation: hinterlegte Links zeigen, außer bei simuliertem Ausfall oder ohne Link
+    expect(canShowLive(feed({ status: 'live' }), true)).toBe(true);
+    expect(canShowLive(feed({ sourceKind: 'media', previewUrl: 'http://ingest:8889/r', status: 'live' }), true)).toBe(
+      true,
+    );
+    expect(canShowLive(feed({ status: 'offline' }), true)).toBe(false);
+    expect(canShowLive(feed({ previewUrl: null }), true)).toBe(false);
     expect(canShowLive(feed({ sourceKind: 'media', previewUrl: 'http://ingest:8889/r' }), false)).toBe(false);
     expect(canShowLive(feed({ sourceKind: 'media', previewUrl: 'http://ingest:8889/r', status: 'live' }), false)).toBe(
       true,

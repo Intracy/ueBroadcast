@@ -33,7 +33,9 @@ export function previewSrc(url: string, bitrateKbps = 1200, scalePct = 50): stri
 
 /** Ob die Regie für diesen Feed ein Live-Bild zeigen kann. */
 export function canShowLive(feed: FeedState | undefined, simulation: boolean): boolean {
-  if (!feed?.previewUrl || simulation) return false;
+  if (!feed?.previewUrl) return false;
+  // Simulation: hinterlegte Links trotzdem zeigen – nur ein simulierter Ausfall blendet das Bild aus
+  if (simulation) return feed.status !== 'offline';
   if (feed.status === 'live') return true;
   // Browser-Links (VDO.Ninja) lassen sich nicht von außen prüfen – Bild zeigen, solange nichts dagegen spricht
   return feed.sourceKind === 'browser' && feed.status !== 'offline';
