@@ -1,201 +1,148 @@
 # ueBroadcast
 
-Regie-Oberfläche für Multi-Stream-Events, gekoppelt mit OBS. Erster Anwendungsfall: **„Mario 64 Marathon“** – ca. 10 Remote-Runner, 5 Tage, täglich 12–22 Uhr, Super Mario 64 (70 Stars), Host Huebi mit Wadsm und Lino.
+Browserbasiertes Broadcast- und Regie-Tool für OBS. Eine Bildregie-Person steuert damit viele Feeds gleichzeitig: Multiview, Vorschau/Programm, Layouts, Take, Audio-Follow, Grafik-Overlay, Störungsalarm und ein Highlight-Radar, das die spannendsten Momente vorschlägt.
 
-> Technisches Konzept, Stand 09.10.2026 – Tobias Lindner
+ueBroadcast ist in **Produktionsumgebungen** organisiert. Jede Produktion nutzt ein **Format**, das die inhaltliche Logik mitbringt:
 
-## Ausgangslage & Ziele
+| Format          | Wofür                                                                                | Status                       |
+| --------------- | ------------------------------------------------------------------------------------ | ---------------------------- |
+| `sm64-marathon` | Super-Mario-64-Speedrun-Event (70 Stars) mit ca. 10 Remote-Runnern, Host + Kommentar | erstes Event, voll ausgebaut |
+| `multicam`      | Talk, Podcast, Panel, Bühne: Kameras, Bauchbinden, Ablaufplan                        | Vorlage für weitere Formate  |
 
-Empfehlung: Ein einziges Produktions-OBS, gesteuert über eine browserbasierte Regie-Oberfläche (NodeCG + obs-websocket), die aus 10 Remote-Feeds die spannendsten Momente automatisch vorschlägt. So kann eine Person die Bildregie über 10 Stunden am Tag halten, ohne Highlights zu verpassen.
+Weitere Event-Formate lassen sich ergänzen, ohne den Kern anzufassen – siehe [docs/FORMATE.md](docs/FORMATE.md). Das zugrunde liegende Konzept steht in [docs/KONZEPT.md](docs/KONZEPT.md).
 
-| Eckdaten | Stand |
-| --- | --- |
-| Spiel / Kategorie | Super Mario 64, 70 Stars |
-| Runner | ca. 10, alle remote von zuhause |
-| Zeitraum | ca. 5 Tage im Dezember 2026 |
-| Sendezeit | täglich ca. 12–22 Uhr, also rund 50 Stunden live |
-| Host & Kommentar | Huebi, mit Wadsm und Lino |
-| Sendekanal | noch offen (vermutlich Huebis Twitch) |
+## Schnellstart
 
-Ein 70-Star-Run dauert grob 45 Minuten bis über eine Stunde, dazu kommen Resets. Bei 10 parallelen Runnern passiert also fast immer irgendwo etwas – die Kernaufgabe der Regie ist Auswählen, nicht Suchen.
+Voraussetzung: [Node.js](https://nodejs.org) ab Version 20.19.
 
-**Ziele**
-
-- Eine Bildregie-Person behält alle 10 Feeds im Blick und schneidet mit wenigen Klicks.
-- Zuschauer sehen PB-Versuche, Endphasen und knappe Duelle live statt im Nachhinein.
-- Runner brauchen nur ihr normales OBS plus eine zusätzliche Ausgabe.
-- Der Betrieb hält 5 Tage am Stück stabil, mit klaren Fallbacks bei Feed- oder Leitungsausfall.
-
-## Systemarchitektur
-
-```mermaid
-flowchart LR
-    K["Kommentar<br/>VDO.Ninja-Raum<br/>Huebi, Wadsm, Lino"]
-    R["Runner-OBS ×10<br/>je Runner zuhause"]
-    I["Ingest-Server<br/>MediaMTX auf VPS<br/>ein Pfad je Runner, Aufzeichnung"]
-    O["Produktions-OBS<br/>10 Feeds geladen<br/>Layout-Szenen, Audio-Mix"]
-    T["Sendekanal<br/>Twitch, 1 Programm<br/>VOD + Marker"]
-    D["Run-Daten<br/>LiveSplit-Splits<br/>via therun.gg"]
-    G["Regie-Oberfläche (NodeCG)<br/>Multiview, Highlight-Radar, Layout-Take<br/>Audio-Follow, Grafik, Störungsalarm"]
-
-    R -- SRT --> I -- SRT --> O -- RTMP --> T
-    K -- "Audio + Kameras" --> O
-    R -- Splits --> D -- Daten --> G
-    I -- "WebRTC-Vorschau" --> G
-    G <-- obs-websocket --> O
-    G -- Twitch-API --> T
-
-    style G stroke-width:3px
+```bash
+npm install
+npm start
 ```
 
-Die Runner-Feeds laufen über den Ingest-Server ins Produktions-OBS; die Regie-Oberfläche sieht alle Feeds als Vorschau, bekommt die Run-Daten und steuert OBS sowie Twitch – ein Programm geht raus.
+Dann im Browser **http://localhost:4400** öffnen. Ohne weitere Einstellungen läuft alles im **Simulationsmodus**: zehn simulierte Runner spielen Mario 64 mit sechsfacher Geschwindigkeit, inklusive Splits, Resets, PBs und Feed-Ausfällen. So lässt sich die Regie ohne OBS und ohne Runner ausprobieren und proben.
 
-## Signal-Ingest der Runner-Feeds
+## Mit OBS verbinden
 
-Empfehlung: Jeder Runner schickt sein Bild per SRT an einen eigenen Ingest-Server (Variante A); das Abgreifen vom Twitch-Kanal des Runners bleibt der Notfall-Weg.
+1. In OBS **Werkzeuge → WebSocket-Servereinstellungen** öffnen, Server aktivieren, Port und Passwort notieren.
+2. `.env.example` nach `.env` kopieren und eintragen:
+   ```ini
+   OBS_URL=ws://127.0.0.1:4455
+   OBS_PASSWORD=dein-passwort
+   ```
+3. `npm start` – oben rechts erscheint „OBS: nicht eingerichtet“. Auf **OBS einrichten** klicken.
 
-| Variante | Weg | Latenz (ca.) | Qualität | Aufwand Runner | Bewertung |
-| --- | --- | --- | --- | --- | --- |
-| A: SRT-Push an Ingest-Server | Runner-OBS → MediaMTX → Produktions-OBS | 1–2 s | volle Kontrolle über Bitrate | eine zusätzliche Ausgabe einrichten | Empfehlung |
-| B: Pull vom Runner-Twitch | Twitch → Streamlink → Produktions-OBS | 5–15 s | Twitch-Transcode, schwankend | keiner | Fallback |
-| C: VDO.Ninja (WebRTC) | Browser-Link → Browserquelle in OBS | < 1 s | bei Bewegung oft unscharf | gering | nur für Kameras/Kommentar |
+Das Einrichten legt in OBS an (mehrfach ausführbar, ändert nichts doppelt):
 
-**Details zu Variante A**
+- zwei Szenen **„ueB Programm A“** und **„ueB Programm B“**,
+- je Feed eine Quelle **„ueB Feed &lt;id&gt;“** (Medienquelle für SRT/RTMP, Browserquelle z. B. für VDO.Ninja),
+- die Browserquelle **„ueB Overlay“** ganz oben,
+- vorhandene Zusatzquellen aus `obs.extraSources` (z. B. eine Szene „Kommentar“ mit den Kameras von Huebi, Wadsm und Lino).
 
-- Ingest-Server: MediaMTX auf einem kleinen VPS (z. B. Frankfurt). Jeder Runner bekommt einen eigenen Pfad mit Passwort. Der VPS entkoppelt die Runner vom Studio-Anschluss.
-- Streamt der Runner nur für uns, reicht OBS nativ (benutzerdefinierter Server). Will er parallel auf seinem eigenen Kanal senden, braucht er ein Multi-Output-Plugin (z. B. obs-multi-rtmp oder Aitum Multistream).
-- Vorgabe für alle: 1280×720, 60 fps, ca. 4–6 Mbit/s, Keyframe-Intervall 1–2 s, 4:3-Spielbild zentriert. SM64 hat ohnehin eine niedrige native Auflösung; 1080p bringt kaum etwas.
-- MediaMTX stellt jeden Feed zusätzlich als WebRTC-Vorschau bereit. Diese speist die Multiview der Regie-Oberfläche – mit geringerer Verzögerung als das Programm.
-- MediaMTX zeichnet jeden Feed auf. Das ist Sicherung, Material für Highlights und Basis für Replays (Phase 2).
+Beim **Take** belegt ueBroadcast die gerade nicht gesendete Szene mit dem neuen Layout und blendet über. Ist in OBS der **Studio-Modus** aktiv, wird der dort eingestellte Übergang genutzt. Alle Feeds bleiben dauerhaft geladen, deshalb gibt es beim Umschnitt kein Nachladen.
 
-**Latenz und Sync**
+Feeds ohne `source` in der Konfiguration legt ueBroadcast nicht selbst an. Eine Quelle mit dem Namen `ueB Feed <id>` kann man in OBS auch selbst anlegen, sie wird dann genauso gesteuert.
 
-Solange die Runner nicht gleichzeitig auf Kommando starten, ist eine Verzögerung von 1–2 s unkritisch. Wichtig ist nur, dass Kommentar und Regie dasselbe Bild sehen wie das Programm – sie schauen deshalb auf die Multiview bzw. den Programm-Rückweg, nie auf Twitch.
+## Bedienung der Regie
 
-## Die Regie-Oberfläche: Module und Features
+| Aktion                         | Maus                                        | Tastatur                               |
+| ------------------------------ | ------------------------------------------- | -------------------------------------- |
+| Layout für die Vorschau wählen | Layout-Leiste                               | `Q` `W` `E` `R` `T` `Y` (siehe Knöpfe) |
+| Slot in der Vorschau wählen    | Slot anklicken                              | `←` `→`                                |
+| Feed in den gewählten Slot     | Kachel anklicken oder auf einen Slot ziehen | `1`–`9`, `0`                           |
+| Vorschau auf Sendung           | **TAKE**                                    | `Enter` oder Leertaste                 |
+| Feed direkt in den Hauptslot   | „Schnitt“ (Kachel oder Radar)               | –                                      |
+| Twitch-Marker setzen           | Reiter „Sendung“                            | `M`                                    |
 
-Die Oberfläche läuft im Browser (Tablet, zweiter Monitor, Laptop) und spricht über obs-websocket v5 direkt mit dem Produktions-OBS. Basis ist NodeCG, das Framework, mit dem auch große Speedrun-Marathons ihre Grafiken und Dashboards bauen; das Bundle nodecg-speedcontrol bringt Runner-Daten, Zeitplan und Twitch-Anbindung schon mit.
+Weitere Funktionen:
 
-| Modul | Was es tut | Priorität |
-| --- | --- | --- |
-| Multiview mit Feed-Status | Kachel je Runner: Live-Bild (WebRTC), Sterne x/70, Split-Delta zur PB, Bitrate, Ampel für Verbindung | Muss |
-| Highlight-Radar | Sortiert die Runner nach Spannung und meldet Momente aktiv (siehe unten) | Muss |
-| Layout-Take | Layout wählen (1, 2, 4, alle 10, Host-Cam), Runner per Klick in Slots ziehen, Preview → Take | Muss |
-| Audio-Follow | Spielton folgt automatisch dem Runner im Hauptslot; Ducking unter Kommentar | Muss |
-| Störungs-Handling | Alarm bei Feed-Abbruch; fällt der Hauptfeed aus, automatischer Wechsel auf Ersatzlayout | Muss |
-| Grafik-Steuerung | Bauchbinden, Tagestabelle, Leaderboard, Ticker ein- und ausblenden | Soll |
-| Twitch-Anbindung | Titel setzen, Stream-Marker bei Highlights, Umfragen und Predictions („Wer schafft heute die Bestzeit?“) | Soll |
-| Runner-Check-in | Runner melden sich an/ab; Regie sieht, wer gerade live ist und wer nur pausiert | Soll |
-| Hardware-Tasten | Stream Deck über Bitfocus Companion für Take, Layouts, Audio | Soll |
-| Replay | „Letzte 30 s von Runner X“ aus der MediaMTX-Aufzeichnung einspielen | Kann (Phase 2) |
-| Runner-Interview | Runner nach PB per VDO.Ninja kurz zuschalten | Kann |
+- **Highlight-Radar** (rechts): sortiert die Runner nach Spannung, also PB-Pace, Endphase ab 60 Sternen, Duelle, frische Zieleinläufe und „lange nicht im Bild“. Mit „→ Vorschau“ oder „Duell“ geht der Vorschlag in die Vorschau.
+- **Autopilot** (oben rechts): schneidet nach dem Radar selbst, mit Mindesthaltezeit (`autopilot.minHoldSec`). Gedacht für ruhige Phasen und Pausen der Regie. Er startet nach jedem Neustart ausgeschaltet.
+- **Audio-Follow**: nur der Feed im Hauptslot ist hörbar.
+- **Störungs-Handling**: Fällt ein Feed auf Sendung aus, kommt sofort eine Meldung und der Feed wird durch den nächstbesten ersetzt. Gibt es keinen Ersatz, schaltet ueBroadcast auf das Pausen-Layout.
+- **Grafik**: Namen/Zeiten in den Slots, Ticker „Gleich spannend“, Tabelle und Bauchbinde.
+- **Logbuch**: Takes, Meldungen und Marker mit Uhrzeit, als CSV für VOD-Schnitt und Nachbereitung.
+- Der Zustand (Logbuch, Runs, Tabelle, Bestzeiten) wird in `data/` gespeichert und übersteht Neustarts.
 
-### Highlight-Radar
+### Overlay
 
-Das Radar vergibt jedem aktiven Run laufend eine Punktzahl. Die Regie sieht eine sortierte Liste plus Push-Hinweise wie „Runner X auf PB-Pace, noch 8 Sterne“.
+Die Overlay-Seite ist eine transparente 1920×1080-Browserquelle:
 
-- **PB-Pace:** Delta zur persönlichen Bestzeit negativ → viele Punkte, je später im Run, desto mehr.
-- **Endphase:** ab ca. Stern 60 bzw. Bowser in the Sky steigt die Punktzahl stark.
-- **Duelle:** zwei Runner mit ähnlicher Zeit am gleichen Punkt → Vorschlag für ein 2er-Layout.
-- **Resets:** Run abgebrochen → Punktzahl fällt, Kachel wird ausgegraut.
-- **Lange nicht gezeigt:** wer lange nicht im Bild war, bekommt einen kleinen Bonus – damit alle 10 Runner Sendezeit bekommen.
+- `http://localhost:4400/overlay.html?view=program` – Programm-Overlay (wird von „OBS einrichten“ automatisch angelegt)
+- `http://localhost:4400/overlay.html?view=leaderboard` – nur die Tabelle, z. B. für eine eigene Szene
 
-Das Radar schlägt vor, die Regie entscheidet. Ein optionaler Auto-Modus kann in ruhigen Phasen (etwa wenn die Regie Pause macht) selbst schneiden.
+Läuft OBS auf einem anderen Rechner als ueBroadcast, `UEB_PUBLIC_URL` in der `.env` auf die erreichbare Adresse setzen.
 
-### Technik hinter dem Layout-Take
+### Stream Deck / Bitfocus Companion
 
-- Alle 10 Feeds sind dauerhaft als Medienquellen in einer versteckten Szene „Feeds“ geladen. Die Layout-Szenen binden sie nur ein. Ein Umschnitt lädt also nichts nach und ist sofort sauber.
-- Die Oberfläche setzt per obs-websocket, welcher Feed in welchem Slot sichtbar ist, und löst dann den Übergang im Studio-Modus aus.
-- Namen, Timer und Sterne-Zähler im Slot kommen aus NodeCG und wandern automatisch mit dem Runner mit.
+Alle Regie-Aktionen sind per HTTP erreichbar, z. B. über das Generic-HTTP-Modul von Companion:
 
-## Run-Daten & Overlays
+| Endpunkt                                                     | Wirkung                                                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `POST /api/take`                                             | Vorschau auf Sendung                                                           |
+| `POST /api/layout/<layoutId>`                                | Vorschau-Layout setzen (`single`, `duo`, `featured`, `quad`, `grid`, `pause`)  |
+| `POST /api/cut/<feedId>`                                     | Feed direkt in den Hauptslot                                                   |
+| `POST /api/autopilot/on` · `/off`                            | Autopilot schalten                                                             |
+| `POST /api/action` mit `{"action": "...", "payload": {...}}` | jede andere Aktion, z. B. `{"action":"marker","payload":{"text":"Highlight"}}` |
+| `GET /api/state`                                             | kompletter Zustand als JSON                                                    |
+| `GET /api/log.csv`                                           | Logbuch                                                                        |
 
-Ohne Live-Daten aus den Splits funktionieren weder Radar noch Overlays – deshalb gilt: alle Runner nutzen LiveSplit mit einer vorgegebenen, einheitlichen Split-Datei.
+## Das Mario-64-Event einrichten
 
-**Datenquelle**
+Die Vorlage ist [`productions/sm64-marathon.json`](productions/sm64-marathon.json). Für den Echtbetrieb:
 
-1. **therun.gg (bevorzugt):** Runner installieren die therun.gg-Komponente in LiveSplit. Splits, Delta und PB-Pace laufen live zu therun.gg und können von dort abgefragt werden. Vorher prüfen: Datenzugriff und Nutzungsbedingungen.
-2. **Eigenes Split-Relay (Fallback):** ein kleines Tool beim Runner liest den lokalen LiveSplit-Server und schickt die Splits ausgehend an unseren Server. Keine Portfreigabe beim Runner nötig.
-3. **Manuell:** eine Hilfsperson pflegt Sterne-Stände per Klick. Für 10 Runner über 50 Stunden nur als Notlösung.
+1. **Runner eintragen:** je Feed `label` und `meta.runner` (Anzeigename) setzen, optional die PB als `meta.pbMs` in Millisekunden (z. B. `3120000` für 52:00). Die PB lässt sich auch in der Regie im Reiter „Runs & Tabelle“ ändern.
+2. **Ingest-Server:** [MediaMTX](https://github.com/bluenviron/mediamtx) auf einem VPS betreiben, API aktivieren (Port 9997). Je Runner einen Pfad `runner01` … `runner10` mit eigenem Publish-Passwort anlegen.
+   - Runner senden aus OBS per SRT an `srt://<ingest>:8890?streamid=publish:runner01:<user>:<pass>` (720p60, 4–6 Mbit/s, Keyframe 1–2 s).
+   - In der Konfiguration: `source.url` = `srt://<ingest>:8890?streamid=read:runner01`, `previewUrl` = `http://<ingest>:8889/runner01` (WebRTC-Vorschau für die Multiview), `ingest.mediamtxApi` = `http://<ingest>:9997` (Verbindungsstatus und Bitrate).
+   - Genaue Syntax für Pfade und Zugangsdaten in der MediaMTX-Dokumentation prüfen.
+3. **Splits abstimmen:** Alle Runner nutzen LiveSplit mit derselben Split-Einteilung. Die Einteilung steht als `formatConfig.splits` in der Konfiguration (`name`, `stars` = Sterne nach dem Split, `pbAt` = Anteil der PB-Zeit). Ohne Angabe gelten die Beispiel-Splits aus `server/formats/sm64/splits.ts` – die vorab mit den Runnern abstimmen.
+4. **Split-Relay bei jedem Runner:** In LiveSplit den TCP-Server starten (Control → Start TCP Server, Port 16834). Dann beim Runner:
+   ```bash
+   node split-relay.mjs --server https://<regie-adresse> --feed r01 --token <UEB_RELAY_TOKEN>
+   ```
+   Das Relay ([`tools/split-relay.mjs`](tools/split-relay.mjs)) hat keine Abhängigkeiten und braucht nur Node.js. Es sendet ausgehend, beim Runner ist keine Portfreigabe nötig. Fällt ein Relay aus, bedient die Regie den Run im Reiter „Runs & Tabelle“ von Hand.
+5. **Wertung:** `formatConfig.scoring` = `bestTime`, `finishedRuns` oder `totalStars`. Lässt sich auch live in der Regie umstellen.
+6. `simulation.enabled` auf `false` setzen. Mit `true` lässt sich auch mit echtem OBS proben, dann mit simulierten Runs.
 
-Einheitliche Splits sind der entscheidende Punkt: Splitten Runner unterschiedlich (pro Level, pro Stern, nur Bowser), lassen sich Sterne-Zähler und Vergleiche nicht sauber berechnen. Empfehlung: Split pro Stern-Gruppe bzw. Level mit hinterlegter Sternzahl, vorab mit allen Runnern abgestimmt.
+Damit die Runner die Regie erreichen, muss ueBroadcast von außen erreichbar sein (z. B. hinter einem Reverse-Proxy mit HTTPS). Dann unbedingt `UEB_RELAY_TOKEN` setzen.
 
-**Overlays (Browserquellen aus NodeCG)**
+## Twitch
 
-- Runner-Kachel: Name, Sterne x/70, Timer, Delta zur PB, kleiner Status (läuft / Reset / Pause).
-- Tagestabelle: beste Zeit, Anzahl beendeter Runs, gesammelte Sterne je Runner.
-- Event-Leaderboard über alle 5 Tage – Wertung hängt vom noch offenen Modus ab.
-- Hinweis-Band „Gleich spannend“: zeigt Zuschauern, wer kurz vor dem Ziel ist.
-- Host-Rahmen für Huebi, Wadsm und Lino mit Namen.
+Optional in der `.env`: `TWITCH_CLIENT_ID`, `TWITCH_ACCESS_TOKEN` (User-Token mit Scope `channel:manage:broadcast`) und `TWITCH_BROADCASTER_ID`. Dann setzt ueBroadcast Stream-Marker (manuell und mit `twitch.autoMarkers` automatisch bei PBs und Event-Bestzeiten) und kann den Titel ändern. Ohne Zugangsdaten landen Marker nur im Logbuch.
 
-Abgeschlossene Runs landen in einer kleinen Datenbank. Daraus entstehen Tagesstatistiken, Rekordmeldungen („neue Event-Bestzeit!“) und Material für Social Media.
+## Entwicklung
 
-## Kommentar & Audio
+```bash
+npm run dev        # Server mit Neustart bei Änderungen + Oberfläche mit Hot-Reload auf http://localhost:5173
+npm test           # Tests (Layouts, Autopilot, SM64-Logik, Radar, Produktion, Relay)
+npm run typecheck
+npm run format
+```
 
-Empfehlung: Huebi, Wadsm und Lino kommen über einen VDO.Ninja-Raum ins Produktions-OBS – jede Person als eigene Quelle mit eigener Kamera und eigener Tonspur.
+Aufbau:
 
-- **Getrennte Spuren:** Jede Stimme lässt sich einzeln pegeln, komprimieren und bei Störungen stummschalten. Für den VOD-Schnitt werden alle Spuren getrennt mitgeschnitten.
-- **Sehen, was gesendet wird:** Das Kommentarteam schaut auf die Multiview bzw. einen Programm-Rückweg mit geringer Verzögerung, nie auf Twitch.
-- **Talkback:** Ein eigener Kanal (z. B. Discord oder VDO.Ninja-Regieton) von der Regie nur auf ein Ohr des Hosts – für Hinweise wie „Runner 4 gleich bei Bowser“.
-- **Mischung im OBS:** Spielton des Hauptslots unter dem Kommentar abgesenkt (Ducking), Limiter auf der Summe, Ziel ca. −14 LUFS für Twitch.
-- **Huebi vor Ort im eigenen Studio:** Falls er dort mit eigener Technik sitzt, kann er alternativ einen fertigen Kommentar-Mix schicken. Das spart Aufwand, nimmt der Regie aber die Kontrolle über einzelne Stimmen.
-- **Runner-Ton:** Standardmäßig nur Spielton. Runner-Mikros nur für Interviews zuschalten, damit Absprachen mit Familie oder Discord nicht versehentlich auf Sendung gehen.
+```
+server/
+  core/            Produktion, Layouts, Autopilot, Feed-Monitor (MediaMTX), Konfiguration
+  obs/             OBS-Steuerung über obs-websocket v5
+  formats/         Formate: sm64/ (Run-Logik, Radar, Simulator), multicam/
+  integrations/    Twitch
+  http.ts          HTTP-API + WebSocket
+web/src/
+  components/      Regie: Monitore, Multiview, Radar, Meldungen, Werkzeuge
+  formats/         Format-Bedienfelder und Overlay-Bausteine
+  overlay/         OBS-Overlay
+shared/            Typen und Helfer für Server und Browser
+productions/       Produktionen (eine JSON-Datei je Produktion)
+tools/             Split-Relay für die Runner
+```
 
-Bei 10 Stunden pro Tag sollte das Kommentarteam rotieren; die Grafik zeigt immer, wer gerade spricht.
+Technik: TypeScript durchgehend, Node.js-Server (`ws`, `obs-websocket-js`), Oberfläche mit React und Vite. Server und Browser teilen sich die Typen in `shared/`.
 
-## Tech-Stack, Hardware & Betrieb
+## Grenzen und nächste Schritte
 
-Der Stack besteht fast nur aus bewährter Open-Source-Software; eigene Entwicklung fällt vor allem für Highlight-Radar, Layout-Take und Split-Anbindung an.
-
-| Komponente | Empfehlung | Zweck |
-| --- | --- | --- |
-| Produktion | OBS Studio (aktuelle Version) mit obs-websocket v5 | Bild, Ton, Ausspielung an Twitch |
-| Regie & Grafik | NodeCG + nodecg-speedcontrol, eigene Bundles | Oberfläche, Overlays, Run-Daten |
-| Ingest | MediaMTX auf VPS | SRT-Empfang, WebRTC-Vorschau, Aufzeichnung |
-| Fallback-Ingest | Streamlink | Feeds vom Runner-Twitch abgreifen |
-| Kommentar | VDO.Ninja | Kameras und Ton des Kommentarteams |
-| Run-Daten | LiveSplit + therun.gg oder eigenes Relay | Splits, Delta, Sterne |
-| Bedienung | Bitfocus Companion + Stream Deck | Tasten für Take, Layouts, Audio |
-| Plattform | Twitch-API | Titel, Marker, Umfragen, Predictions |
-
-**Hardware (Richtwerte)**
-
-- Produktions-PC: aktuelle 8–12-Kern-CPU, NVIDIA-GPU mit NVENC und Hardware-Decoding, 32 GB RAM. 10 gleichzeitig dekodierte 720p-Feeds sind damit machbar, müssen aber vorab unter Volllast getestet werden.
-- Regieplatz: 3 Monitore (Programm, Multiview/Regie-Oberfläche, Audio/Status) plus Stream Deck.
-- Leitung im Studio: Download ca. 50–60 Mbit/s für 10 Feeds plus Reserve, Upload mindestens 10–15 Mbit/s für Twitch und Rückwege.
-
-**Betrieb über 5 Tage**
-
-- Tagesablauf: 11:00 Technik-Check mit allen Runnern, 12:00 On Air, 22:00 Ende, danach Aufzeichnungen sichern und Rechner neu starten.
-- Redundanz: USV am Regieplatz, zweite Internetleitung (z. B. 5G-Router) als Fallback, Ersatz-PC mit identischer Szenen-Sammlung, lokale Aufnahme des Programms.
-- Pausen-Slate mit Tabelle und Musik, falls kurzfristig niemand läuft.
-- Logbuch der Regie: Störungen und Highlights mit Uhrzeit – erleichtert VOD-Schnitt und Nachbereitung.
-
-## Rollen, Umsetzungsplan & offene Fragen
-
-Für den Live-Betrieb reichen drei Rollen; bei 10 Stunden am Tag sollten Bildregie und Technik sich abwechseln können.
-
-| Rolle | Aufgabe |
-| --- | --- |
-| Bildregie | Layouts, Takes, Grafiken – arbeitet mit dem Highlight-Radar |
-| Technik & Runner-Support | Feeds, Ton, Störungen, Kontakt zu den Runnern per Discord |
-| Host & Kommentar | Huebi mit Wadsm und Lino, Moderation, Interviews |
-
-**Umsetzungsplan (rückwärts vom Eventstart)**
-
-1. Ca. 8 Wochen vorher: Format, Wertung und Runner festlegen; Split-Datei und Technik-Vorgaben an alle Runner.
-2. Ca. 6 Wochen vorher: Ingest-Server und OBS-Grundgerüst stehen; erste Testfeeds von 2–3 Runnern.
-3. Ca. 4 Wochen vorher: Regie-Oberfläche mit Multiview, Layout-Take, Audio-Follow; Overlays in erster Version.
-4. Ca. 2 Wochen vorher: Highlight-Radar, Split-Anbindung, Twitch-Anbindung; Einzel-Technik-Check mit jedem Runner.
-5. Ca. 1 Woche vorher: Generalprobe über mehrere Stunden mit allen 10 Feeds und dem Kommentarteam, Lasttest des Produktions-PCs.
-6. Event: tägliche Checks, Logbuch, Nachbesserungen über Nacht.
-
-**Offene Fragen**
-
-- [ ] Genaue Termine im Dezember und Anzahl der Tage?
-- [ ] Wertungsmodus: beste Zeit, Anzahl beendeter Runs, Gesamt-Sterne – oder Mischung?
-- [ ] Streamen die Runner parallel auf eigenen Kanälen, und haben alle dem Restream zugestimmt?
-- [ ] Spielen die Runner auf Konsole oder Emulator, und nutzen alle LiveSplit?
-- [ ] Sitzt Huebi im eigenen Studio, sind Wadsm und Lino remote?
-- [ ] Über welchen Kanal wird gesendet – und gibt es Spenden oder einen Charity-Zweck?
-- [ ] Wer übernimmt Bildregie und Technik, und welches Budget steht für Entwicklung und Betrieb bereit?
+- **Kein Login:** ueBroadcast ist für das lokale Netz gedacht. Wer es öffentlich erreichbar macht (für das Split-Relay), sollte die Regie-Seite hinter einen Reverse-Proxy mit Zugangsschutz legen und das Relay-Token setzen.
+- **OBS** ist gegen einen nachgebauten obs-websocket-Server getestet. Vor dem Event einmal mit echtem OBS und echten SRT-Feeds proben, besonders die Last beim Dekodieren von zehn Feeds.
+- **therun.gg** ist nicht angebunden. Das eigene Split-Relay liefert dieselben Daten direkt aus LiveSplit.
+- Noch offen aus dem Konzept: Replays aus der Ingest-Aufzeichnung, Twitch-Umfragen und Predictions, Runner-Check-in, Runner-Interviews per VDO.Ninja.

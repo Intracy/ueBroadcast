@@ -1,0 +1,128 @@
+import type { FeedInsight, FeedState, ProductionState } from '../../../shared/types';
+import { send } from '../api';
+import { formatUi } from '../formats';
+import { DeltaText, ScoreBadge, TimerText } from './bits';
+
+function previewSrc(url: string): string {
+  // MediaMTX-WebRTC-Seite ohne Bedienelemente und stumm
+  return url.includes('?') ? url : `${url}?controls=false&muted=true&autoplay=true`;
+}
+
+interface Props {
+  production: ProductionState;
+  insights: Map<string, FeedInsight>;
+  now: number;
+  offset: number;
+  onPick: (feedId: string) => void;
+}
+
+export function Multiview({ production, insights, now, offset, onPick }: Props) {
+  const ui = formatUi(production.format);
+  return (
+    <section className="multiview" aria-label="Multiview">
+      {production.feeds.map((feed, i) => (
+        <FeedTile
+          key={feed.id}
+          index={i}
+          feed={feed}
+          insight={insights.get(feed.id)}
+          detail={ui.tileDetail?.(production.formatState, feed.id) ?? null}
+          simulation={production.simulation}
+          now={now}
+          offset={offset}
+          onPick={() => onPick(feed.id)}
+        />
+      ))}
+    </section>
+  );
+}
+
+function FeedTile({
+  index,
+  feed,
+  insight,
+  detail,
+  simulation,
+  now,
+  offset,
+  onPick,
+}: {
+  index: number;
+  feed: FeedState;
+  insight: FeedInsight | undefined;
+  detail: string | null;
+  simulation: boolean;
+  now: number;
+  offset: number;
+  onPick: () => void;
+}) {
+  const hotkey = index < 9 ? String(index + 1) : index === 9 ? '0' : null;
+  const showVideo = !!feed.previewUrl && !simulation && feed.status !== 'offline';
+  const cls = ['tile', feed.onProgram ? 'on-program' : '', feed.inPreview ? 'in-preview' : '', `status-${feed.status}`]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <div
+      className={cls}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/ueb-feed', feed.id);
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
+      onClick={onPick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onPick();
+      }}
+      aria-label={`${feed.label} in die Vorschau`}
+    >
+      <div className="tile-video">
+        {showVideo ? (
+          <iframe src={previewSrc(feed.previewUrl!)} title={feed.label} allow="autoplay" tabIndex={-1} />
+        ) : (
+          <div className={`tile-placeholder hue-${index % 6}`}>
+            {feed.status === 'offline' ? (
+              <span className="nosignal">KEIN SIGNAL</span>
+            ) : (
+              <>
+                <span className="big">{insight?.stats ?? feed.label}</span>
+                {detail && <span className="detail">{detail}</span>}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="tile-top">
+        {hotkey && <kbd>{hotkey}</kbd>}
+        <i className={`dot ${feed.status}`} title={feed.status} />
+        <strong>{feed.label}</strong>
+        <ScoreBadge insight={insight} />
+      </div>
+      <div className="tile-bottom">
+        <span className="status">{insight?.status}</span>
+        <TimerText timer={insight?.timer ?? null} now={now} offset={offset} />
+        <DeltaText ms={insight?.deltaMs ?? null} />
+        {feed.bitrateKbps !== null && <span className="bitrate">{(feed.bitrateKbps / 1000).toFixed(1)} Mb/s</span>}
+      </div>
+      <div className="tile-actions" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="mini"
+          title="Direkt in den Hauptslot auf Sendung"
+          onClick={() => send('cut', { feedId: feed.id })}
+        >
+          Schnitt
+        </button>
+        {simulation && (
+          <button
+            className="mini"
+            title="Simuliert 15 s Signalverlust"
+            onClick={() => send('feed.simulateDrop', { feedId: feed.id })}
+          >
+            Ausfall
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,271 @@
+/* ueBroadcast Overlay – OBS-Browserquelle, transparenter Hintergrund, Basis 1920×1080. */
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family:
+    Inter,
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    Roboto,
+    sans-serif;
+  color: #fff;
+}
+
+.ov-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+}
+
+/* Namensschilder in den Slots */
+.ov-plate {
+  position: absolute;
+  transform: translateY(calc(-100% - 14px));
+  margin-left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px 8px 12px;
+  border-radius: 8px;
+  background: rgba(10, 12, 16, 0.82);
+  border-left: 5px solid #ef3b3f;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  flex-wrap: wrap;
+  row-gap: 2px;
+  overflow: hidden;
+}
+
+.ov-plate.compact {
+  font-size: 18px;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  margin-left: 8px;
+  transform: translateY(calc(-100% - 8px));
+}
+
+.ov-name {
+  font-weight: 750;
+}
+
+.ov-stat {
+  color: #ffd68a;
+  font-weight: 650;
+}
+
+.ov-time,
+.ov-delta {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+
+.ov-delta.ahead {
+  color: #4fe08f;
+}
+
+.ov-delta.behind {
+  color: #ff8a8d;
+}
+
+/* Bauchbinde */
+.ov-lower {
+  position: absolute;
+  left: 96px;
+  bottom: 150px;
+  padding: 18px 32px 18px 26px;
+  border-left: 8px solid #ef3b3f;
+  background: rgba(10, 12, 16, 0.88);
+  border-radius: 6px;
+  opacity: 0;
+  transform: translateX(-40px);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+  min-width: 420px;
+}
+
+.ov-lower.show {
+  opacity: 1;
+  transform: none;
+}
+
+.ov-lower-title {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.ov-lower-sub {
+  font-size: 28px;
+  color: #c7ced6;
+  margin-top: 6px;
+}
+
+/* Ticker */
+.ov-ticker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  padding: 0 32px 0 0;
+  background: rgba(8, 10, 13, 0.9);
+  border-top: 2px solid #ef3b3f;
+  font-size: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ov-ticker-label {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: #ef3b3f;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 22px;
+}
+
+.ov-ticker-item {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.ov-ticker-item span {
+  color: #ffd68a;
+}
+
+.ov-ticker-item em {
+  font-style: normal;
+  color: #c7ced6;
+}
+
+/* Tabelle */
+.ov-board-wrap {
+  position: absolute;
+}
+
+.ov-board-wrap.side {
+  right: 40px;
+  top: 120px;
+}
+
+.ov-board-wrap.center {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ov-slate .ov-board-wrap {
+  position: static;
+}
+
+.ov-board {
+  width: 560px;
+  background: rgba(10, 12, 16, 0.9);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 14px 22px;
+  background: #ef3b3f;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ov-board-head small {
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.9;
+}
+
+.ov-board ol {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.ov-board li {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  padding: 7px 22px;
+  align-items: baseline;
+}
+
+.ov-board li:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ov-board .rank {
+  color: #8a95a3;
+  font-weight: 700;
+}
+
+.ov-board .name {
+  font-weight: 650;
+}
+
+.ov-board .value {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  color: #ffd68a;
+}
+
+.ov-board-foot {
+  padding: 12px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c7ced6;
+  font-size: 20px;
+}
+
+/* Pausen-Slate */
+.ov-slate {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(239, 59, 63, 0.35), transparent 50%),
+    radial-gradient(circle at 80% 90%, rgba(78, 163, 255, 0.25), transparent 50%), #0b0d10;
+}
+
+.ov-slate-title {
+  font-size: 84px;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+}
+
+.ov-slate-sub {
+  font-size: 36px;
+  color: #c7ced6;
+  margin-bottom: 24px;
+}

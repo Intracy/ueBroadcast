@@ -1,0 +1,151 @@
+{
+  "_hinweis": "Beispiel für ein zweites Eventformat: Talk/Podcast mit vier Kameras (z. B. per VDO.Ninja) und Ablaufplan.",
+  "id": "talk-beispiel",
+  "name": "Talk – Beispielproduktion",
+  "format": "multicam",
+  "description": "Vier Kameras, Bauchbinden und Ablaufplan – Vorlage für Bühnen-, Talk- und Podcastformate.",
+  "defaultLayout": "single",
+  "feeds": [
+    {
+      "id": "cam1",
+      "label": "Totale",
+      "source": {
+        "kind": "browser",
+        "url": "https://vdo.ninja/?view=cam1&room=ueb-talk"
+      }
+    },
+    {
+      "id": "cam2",
+      "label": "Host",
+      "source": {
+        "kind": "browser",
+        "url": "https://vdo.ninja/?view=cam2&room=ueb-talk"
+      }
+    },
+    {
+      "id": "cam3",
+      "label": "Gast 1",
+      "source": {
+        "kind": "browser",
+        "url": "https://vdo.ninja/?view=cam3&room=ueb-talk"
+      }
+    },
+    {
+      "id": "cam4",
+      "label": "Gast 2",
+      "source": {
+        "kind": "browser",
+        "url": "https://vdo.ninja/?view=cam4&room=ueb-talk"
+      }
+    }
+  ],
+  "layouts": [
+    {
+      "id": "single",
+      "name": "Einzel",
+      "hotkey": "q",
+      "slots": [
+        {
+          "id": "main",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "duo",
+      "name": "Zwei",
+      "hotkey": "w",
+      "slots": [
+        {
+          "id": "left",
+          "x": 0,
+          "y": 0.125,
+          "w": 0.5,
+          "h": 0.75
+        },
+        {
+          "id": "right",
+          "x": 0.5,
+          "y": 0.125,
+          "w": 0.5,
+          "h": 0.75
+        }
+      ]
+    },
+    {
+      "id": "quad",
+      "name": "Alle vier",
+      "hotkey": "e",
+      "slots": [
+        {
+          "id": "s1",
+          "x": 0,
+          "y": 0,
+          "w": 0.5,
+          "h": 0.5
+        },
+        {
+          "id": "s2",
+          "x": 0.5,
+          "y": 0,
+          "w": 0.5,
+          "h": 0.5
+        },
+        {
+          "id": "s3",
+          "x": 0,
+          "y": 0.5,
+          "w": 0.5,
+          "h": 0.5
+        },
+        {
+          "id": "s4",
+          "x": 0.5,
+          "y": 0.5,
+          "w": 0.5,
+          "h": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pause",
+      "name": "Pause",
+      "hotkey": "r",
+      "slots": []
+    }
+  ],
+  "simulation": {
+    "enabled": true
+  },
+  "autopilot": {
+    "layoutId": "single",
+    "minHoldSec": 20
+  },
+  "formatConfig": {
+    "rundown": [
+      {
+        "title": "Opener & Begrüßung",
+        "durationMin": 5
+      },
+      {
+        "title": "Thema 1",
+        "durationMin": 20
+      },
+      {
+        "title": "Thema 2",
+        "durationMin": 20
+      },
+      {
+        "title": "Fragen aus dem Publikum",
+        "durationMin": 10
+      },
+      {
+        "title": "Verabschiedung",
+        "durationMin": 5
+      }
+    ]
+  }
+}

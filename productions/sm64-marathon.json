@@ -1,0 +1,161 @@
+{
+  "_hinweis": "Vorlage für das Mario-64-Event. Ohne OBS_URL läuft alles im Simulationsmodus. Für den Echtbetrieb: Runner-Namen, PBs (meta.pbMs), Ingest-Adressen anpassen und simulation.enabled auf false setzen.",
+  "id": "sm64-marathon",
+  "name": "Mario 64 Marathon",
+  "format": "sm64-marathon",
+  "description": "10 Remote-Runner, 5 Tage, täglich 12–22 Uhr, Super Mario 64 – 70 Stars. Host: Huebi mit Wadsm und Lino.",
+  "defaultLayout": "featured",
+  "feeds": [
+    {
+      "id": "r01",
+      "label": "Runner 1",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner01"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner01",
+      "ingestPath": "runner01",
+      "meta": {
+        "runner": "Runner 1"
+      }
+    },
+    {
+      "id": "r02",
+      "label": "Runner 2",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner02"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner02",
+      "ingestPath": "runner02",
+      "meta": {
+        "runner": "Runner 2"
+      }
+    },
+    {
+      "id": "r03",
+      "label": "Runner 3",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner03"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner03",
+      "ingestPath": "runner03",
+      "meta": {
+        "runner": "Runner 3"
+      }
+    },
+    {
+      "id": "r04",
+      "label": "Runner 4",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner04"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner04",
+      "ingestPath": "runner04",
+      "meta": {
+        "runner": "Runner 4"
+      }
+    },
+    {
+      "id": "r05",
+      "label": "Runner 5",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner05"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner05",
+      "ingestPath": "runner05",
+      "meta": {
+        "runner": "Runner 5"
+      }
+    },
+    {
+      "id": "r06",
+      "label": "Runner 6",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner06"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner06",
+      "ingestPath": "runner06",
+      "meta": {
+        "runner": "Runner 6"
+      }
+    },
+    {
+      "id": "r07",
+      "label": "Runner 7",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner07"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner07",
+      "ingestPath": "runner07",
+      "meta": {
+        "runner": "Runner 7"
+      }
+    },
+    {
+      "id": "r08",
+      "label": "Runner 8",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner08"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner08",
+      "ingestPath": "runner08",
+      "meta": {
+        "runner": "Runner 8"
+      }
+    },
+    {
+      "id": "r09",
+      "label": "Runner 9",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner09"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner09",
+      "ingestPath": "runner09",
+      "meta": {
+        "runner": "Runner 9"
+      }
+    },
+    {
+      "id": "r10",
+      "label": "Runner 10",
+      "source": {
+        "kind": "media",
+        "url": "srt://ingest.example.com:8890?streamid=read:runner10"
+      },
+      "previewUrl": "http://ingest.example.com:8889/runner10",
+      "ingestPath": "runner10",
+      "meta": {
+        "runner": "Runner 10"
+      }
+    }
+  ],
+  "ingest": {
+    "mediamtxApi": "http://ingest.example.com:9997"
+  },
+  "obs": {
+    "extraSources": ["Kommentar"]
+  },
+  "simulation": {
+    "enabled": true,
+    "speed": 6
+  },
+  "autopilot": {
+    "layoutId": "featured",
+    "minHoldSec": 40
+  },
+  "twitch": {
+    "autoMarkers": true
+  },
+  "formatConfig": {
+    "scoring": "bestTime",
+    "goalStars": 70
+  }
+}
