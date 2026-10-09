@@ -93,7 +93,9 @@ export class Production extends EventEmitter {
       label: f.label,
       status: this.simulation ? 'live' : 'unknown',
       bitrateKbps: null,
-      previewUrl: f.previewUrl ?? null,
+      // Browser-Links (VDO.Ninja) taugen direkt als Vorschau, wenn keine eigene angegeben ist
+      previewUrl: f.previewUrl || (f.source?.kind === 'browser' ? f.source.url : null),
+      sourceKind: f.source?.kind ?? 'none',
       onProgram: false,
       inPreview: false,
       lastProgramAt: null,
@@ -287,7 +289,7 @@ export class Production extends EventEmitter {
     const layout = this.layoutById(this.program.layoutId);
     const inProgram = new Set(feedsInComposition(this.program, layout));
     const replacement = this.insights()
-      .filter((i) => !inProgram.has(i.feedId) && this.feedById(i.feedId)?.status === 'live')
+      .filter((i) => !inProgram.has(i.feedId) && this.usable(i.feedId))
       .sort((a, b) => b.score - a.score)[0]?.feedId;
     const slotId = Object.entries(this.program.slots).find(([, f]) => f === feed.id)?.[0];
     let next: Composition;
@@ -300,6 +302,17 @@ export class Production extends EventEmitter {
       this.addLog('failover', `Kein Ersatz für ${feed.label} – Pausen-Layout`);
     }
     void this.take(next, 'Failover');
+  }
+
+  /**
+   * Kann der Feed gesendet werden? „live“ sicher; „unbekannt“ bei Browser-Links (VDO.Ninja),
+   * deren Signal sich nicht von außen prüfen lässt. Feeds ohne Signalquelle nie.
+   */
+  usable(id: string): boolean {
+    const f = this.feedById(id);
+    if (!f) return false;
+    if (f.status === 'live') return true;
+    return f.status === 'unknown' && f.sourceKind === 'browser';
   }
 
   feedById(id: string): FeedState | undefined {
@@ -362,7 +375,7 @@ export class Production extends EventEmitter {
     if (!this.autopilot) return;
     const next = decideAutopilot({
       insights: this.insights(),
-      liveFeedIds: new Set(this.feeds.filter((f) => f.status === 'live').map((f) => f.id)),
+      liveFeedIds: new Set(this.feeds.filter((f) => this.usable(f.id)).map((f) => f.id)),
       program: this.program,
       layouts: this.layouts,
       layoutId: this.autopilotLayoutId,

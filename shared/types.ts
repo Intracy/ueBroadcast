@@ -10,6 +10,8 @@ export interface FeedState {
   bitrateKbps: number | null;
   /** WebRTC-Vorschau (z. B. MediaMTX-Seite) für die Multiview, falls vorhanden */
   previewUrl: string | null;
+  /** Woher das Signal kommt: Stream über Ingest-Server, Browser-Link (VDO.Ninja) oder noch keins */
+  sourceKind: 'media' | 'browser' | 'none';
   onProgram: boolean;
   inPreview: boolean;
   lastProgramAt: number | null;

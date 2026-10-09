@@ -1,5 +1,6 @@
 import type { Composition, FeedInsight, FeedState, LayoutDef } from '../../../shared/types';
 import { DeltaText, TimerText } from './bits';
+import { LiveFrame, canShowLive } from './LiveFrame';
 
 interface Props {
   kind: 'preview' | 'program';
@@ -12,9 +13,13 @@ interface Props {
   selectedSlot?: string | null;
   onSelectSlot?: (slotId: string) => void;
   onDropFeed?: (slotId: string, feedId: string) => void;
+  simulation: boolean;
+  /** Live-Bilder in den Slots zeigen */
+  live: boolean;
+  onToggleLive: () => void;
 }
 
-/** Schematische Vorschau/Programm-Ansicht: zeigt das Layout mit den belegten Slots. */
+/** Vorschau/Programm-Monitor: zeigt das Layout mit den belegten Slots, auf Wunsch mit Live-Bild. */
 export function Monitor({
   kind,
   layout,
@@ -26,6 +31,9 @@ export function Monitor({
   selectedSlot,
   onSelectSlot,
   onDropFeed,
+  simulation,
+  live,
+  onToggleLive,
 }: Props) {
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
   return (
@@ -34,6 +42,20 @@ export function Monitor({
         <span className="tally" />
         <strong>{title}</strong>
         <span className="muted">{layout?.name ?? comp.layoutId}</span>
+        {!simulation && (
+          <button
+            className={`live-toggle ${live ? 'on' : ''}`}
+            onClick={onToggleLive}
+            aria-pressed={live}
+            title={
+              live
+                ? 'Live-Bilder ausblenden (spart Bandbreite bei den Runnern)'
+                : 'Live-Bilder in diesem Monitor zeigen'
+            }
+          >
+            Live-Bild {live ? 'an' : 'aus'}
+          </button>
+        )}
       </div>
       <div className="canvas">
         {layout && layout.slots.length === 0 && <div className="slate">Pause / Grafik</div>}
@@ -62,6 +84,9 @@ export function Monitor({
               }}
               title={onSelectSlot ? 'Slot wählen, dann Feed anklicken oder Feed hierher ziehen' : undefined}
             >
+              {live && canShowLive(feed, simulation) && (
+                <LiveFrame feed={feed!} bitrateKbps={kind === 'program' ? 2000 : 1200} />
+              )}
               {i === 0 && layout.slots.length > 1 && <span className="slot-main">Haupt</span>}
               {feed ? (
                 <div className="slot-info">

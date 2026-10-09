@@ -41,6 +41,7 @@ const feed = (id: string, extra: Partial<FeedState> = {}): FeedState => ({
   status: 'live',
   bitrateKbps: null,
   previewUrl: null,
+  sourceKind: 'media',
   onProgram: false,
   inPreview: false,
   lastProgramAt: null,

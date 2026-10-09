@@ -7,6 +7,22 @@ import { Alerts, Radar } from './Radar';
 import { ToolsPanel } from './ToolsPanel';
 import { formatUi } from '../formats';
 
+const LIVE_MONITORS_KEY = 'ueb.liveMonitors';
+
+/** Standard: Live-Bild im Programm an, in der Vorschau aus (jede Ansicht kostet die Runner Upload). */
+function loadLiveMonitors(): { preview: boolean; program: boolean } {
+  try {
+    const raw = localStorage.getItem(LIVE_MONITORS_KEY);
+    if (raw) {
+      const v = JSON.parse(raw) as { preview?: unknown; program?: unknown };
+      return { preview: v.preview === true, program: v.program !== false };
+    }
+  } catch {
+    /* ignorieren */
+  }
+  return { preview: false, program: true };
+}
+
 interface Props {
   state: AppState;
   production: ProductionState;
@@ -20,6 +36,17 @@ export function Regie({ state, production, offset }: Props) {
   const previewLayout = production.layouts.find((l) => l.id === production.preview.layoutId);
   const programLayout = production.layouts.find((l) => l.id === production.program.layoutId);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(previewLayout?.slots[0]?.id ?? null);
+  const [liveMonitors, setLiveMonitors] = useState<{ preview: boolean; program: boolean }>(loadLiveMonitors);
+  const toggleLive = (kind: 'preview' | 'program') =>
+    setLiveMonitors((m) => {
+      const next = { ...m, [kind]: !m[kind] };
+      try {
+        localStorage.setItem(LIVE_MONITORS_KEY, JSON.stringify(next));
+      } catch {
+        /* Speicher nicht verfügbar – Einstellung gilt nur bis zum Neuladen */
+      }
+      return next;
+    });
 
   // Auswahl gültig halten, wenn das Layout wechselt
   useEffect(() => {
@@ -95,6 +122,9 @@ export function Regie({ state, production, offset }: Props) {
             selectedSlot={selectedSlot}
             onSelectSlot={setSelectedSlot}
             onDropFeed={assign}
+            simulation={production.simulation}
+            live={liveMonitors.preview}
+            onToggleLive={() => toggleLive('preview')}
           />
           <div className="take-col">
             <button className="take" onClick={() => send('take')} title="Enter oder Leertaste">
@@ -118,6 +148,9 @@ export function Regie({ state, production, offset }: Props) {
             insights={insights}
             now={now}
             offset={offset}
+            simulation={production.simulation}
+            live={liveMonitors.program}
+            onToggleLive={() => toggleLive('program')}
           />
         </div>
 

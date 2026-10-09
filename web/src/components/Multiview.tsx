@@ -3,17 +3,13 @@ import type { FeedInsight, FeedState, ProductionState } from '../../../shared/ty
 import { send } from '../api';
 import { formatUi } from '../formats';
 import { DeltaText, ScoreBadge, TimerText } from './bits';
+import { LiveFrame, canShowLive } from './LiveFrame';
 
 /** Spalten so wählen, dass keine Kachel allein in einer Reihe steht: 11 → 6, 16 → 8. */
 function multiviewColumns(n: number): number {
   if (n <= 5) return Math.max(n, 1);
   if (n <= 10) return 5;
   return Math.min(8, Math.ceil(n / 2));
-}
-
-function previewSrc(url: string): string {
-  // MediaMTX-WebRTC-Seite ohne Bedienelemente und stumm
-  return url.includes('?') ? url : `${url}?controls=false&muted=true&autoplay=true`;
 }
 
 interface Props {
@@ -69,7 +65,7 @@ function FeedTile({
   onPick: () => void;
 }) {
   const hotkey = index < 9 ? String(index + 1) : index === 9 ? '0' : null;
-  const showVideo = !!feed.previewUrl && !simulation && feed.status === 'live';
+  const showVideo = canShowLive(feed, simulation);
   const cls = ['tile', feed.onProgram ? 'on-program' : '', feed.inPreview ? 'in-preview' : '', `status-${feed.status}`]
     .filter(Boolean)
     .join(' ');
@@ -91,7 +87,7 @@ function FeedTile({
     >
       <div className="tile-video">
         {showVideo ? (
-          <iframe src={previewSrc(feed.previewUrl!)} title={feed.label} allow="autoplay" tabIndex={-1} />
+          <LiveFrame feed={feed} bitrateKbps={800} />
         ) : (
           <div className={`tile-placeholder hue-${index % 6}`}>
             {feed.status === 'offline' ? (

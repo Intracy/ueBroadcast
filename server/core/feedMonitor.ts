@@ -32,6 +32,8 @@ export class MediaMtxMonitor {
     const byName = new Map((body.items ?? []).map((p) => [p.name, p]));
     const result = new Map<string, FeedHealth>();
     for (const feed of this.feeds) {
+      // Nur Feeds, die über den Ingest-Server laufen; Browser-Links (VDO.Ninja) kennt MediaMTX nicht
+      if (feed.source?.kind === 'browser' || (!feed.ingestPath && feed.source?.kind !== 'media')) continue;
       const path = byName.get(feed.ingestPath ?? feed.id);
       if (!path) {
         result.set(feed.id, { live: false, bitrateKbps: null });
