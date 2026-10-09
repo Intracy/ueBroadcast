@@ -41,8 +41,8 @@ export class ObsController extends EventEmitter {
   private stopped = false;
 
   constructor(
-    private readonly url: string | null,
-    private readonly password?: string,
+    private url: string | null,
+    private password?: string,
   ) {
     super();
     this.status = {
@@ -80,6 +80,31 @@ export class ObsController extends EventEmitter {
   async reconnect(): Promise<void> {
     if (!this.url) return;
     await this.obs?.disconnect().catch(() => undefined);
+    await this.connect();
+  }
+
+  /** Neue Verbindungsdaten übernehmen (leere URL = Simulationsmodus) und neu verbinden. */
+  async configure(url: string | null, password?: string): Promise<void> {
+    this.stopped = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    const old = this.obs;
+    this.obs = null;
+    await old?.disconnect().catch(() => undefined);
+    this.url = url;
+    this.password = password;
+    this.itemIds.clear();
+    this.update({
+      mode: url ? 'obs' : 'simulation',
+      connected: false,
+      url,
+      studioMode: false,
+      programScene: null,
+      setupDone: false,
+      error: null,
+    });
+    if (!url) return;
+    this.stopped = false;
     await this.connect();
   }
 
@@ -212,6 +237,15 @@ export class ObsController extends EventEmitter {
 
     for (const feed of this.spec.feeds) {
       const name = feedInputName(feed.id);
+      if (inputNames.has(name) && feed.source) {
+        // Adresse aktuell halten, falls sie in den Einstellungen geändert wurde
+        await this.call(
+          'SetInputSettings',
+          feed.source.kind === 'media'
+            ? { inputName: name, inputSettings: { input: feed.source.url } }
+            : { inputName: name, inputSettings: { url: feed.source.url } },
+        ).catch(() => undefined);
+      }
       if (!inputNames.has(name)) {
         if (!feed.source) {
           notes.push(`Feed ${feed.label}: keine Quelle konfiguriert – Quelle „${name}“ bitte in OBS selbst anlegen`);
@@ -314,6 +348,17 @@ export class ObsController extends EventEmitter {
         requestType: 'SetSceneItemEnabled',
         requestData: { sceneName: target, sceneItemId: itemId, sceneItemEnabled: !!slot },
       });
+    }
+    // Feeds, die nicht mehr zur Produktion gehören, ausblenden
+    const known = new Set(this.spec.feeds.map((f) => feedInputName(f.id)));
+    for (const [key, itemId] of this.itemIds) {
+      const [scene, source] = key.split('|');
+      if (scene === target && source.startsWith('ueB Feed ') && !known.has(source)) {
+        requests.push({
+          requestType: 'SetSceneItemEnabled',
+          requestData: { sceneName: target, sceneItemId: itemId, sceneItemEnabled: false },
+        });
+      }
     }
     await this.batch(requests);
     if (this.status.studioMode) {

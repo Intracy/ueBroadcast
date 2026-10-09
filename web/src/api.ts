@@ -98,3 +98,15 @@ export function useHashRoute(): [string, (r: string) => void] {
   }, []);
   return [route, (r: string) => (location.hash = `#/${r}`)];
 }
+
+/** JSON-Anfrage an die HTTP-API; wirft einen Fehler mit der Meldung des Servers. */
+export async function apiRequest<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `Fehler ${res.status}`);
+  return data;
+}

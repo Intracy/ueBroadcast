@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientAction, ServerMessage } from '../shared/types';
+import type { AppSettingsPatch, ProductionSettings } from '../shared/settings';
 import { WEB_DIST_DIR } from './core/config';
 import type { UebApp } from './core/app';
 import { ActionError } from './formats/types';
@@ -90,6 +91,15 @@ export function createHttpServer(app: UebApp): Server {
     try {
       if (path === '/api/state' && req.method === 'GET') return sendJson(res, 200, app.getState());
       if (path === '/api/health') return sendJson(res, 200, { ok: true });
+      if (path === '/api/settings' && req.method === 'GET') return sendJson(res, 200, app.getSettings());
+      if (path === '/api/settings/app' && req.method === 'POST') {
+        await app.saveAppSettings((await readBody(req)) as AppSettingsPatch);
+        return sendJson(res, 200, app.getSettings());
+      }
+      if (path === '/api/settings/production' && req.method === 'POST') {
+        await app.saveProductionSettings((await readBody(req)) as ProductionSettings);
+        return sendJson(res, 200, app.getSettings());
+      }
 
       if (path === '/api/log.csv' && req.method === 'GET') {
         const rows = (app.active?.getLog() ?? []).map((l) =>

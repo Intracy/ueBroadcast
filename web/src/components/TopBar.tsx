@@ -62,10 +62,14 @@ export function TopBar({ state, connected, route, go, offset }: Props) {
             Autopilot {prod.autopilot ? 'an' : 'aus'}
           </button>
         )}
-        <span className={`pill ${obsTone}`} title={obs.error ?? obs.url ?? ''}>
+        <button
+          className={`pill toggle ${obsTone}`}
+          title={obs.error ?? (obs.url ? `${obs.url} – OBS-Einstellungen öffnen` : 'OBS-Einstellungen öffnen')}
+          onClick={() => go('einstellungen/obs')}
+        >
           <i className="dot" />
           {obsLabel}
-        </span>
+        </button>
         {obs.mode === 'obs' && obs.connected && !obs.setupDone && (
           <button className="pill action" onClick={() => send('obs.setup')}>
             OBS einrichten
@@ -75,6 +79,14 @@ export function TopBar({ state, connected, route, go, offset }: Props) {
           <i className="dot" />
           {connected ? 'Server' : 'Offline'}
         </span>
+        <button
+          className={`settings-btn ${route === 'einstellungen' ? 'active' : ''}`}
+          onClick={() => go('einstellungen')}
+          title="Einstellungen: Runner, Produktion, OBS"
+        >
+          <GearIcon />
+          <span>Einstellungen</span>
+        </button>
         <span className="clock">
           {new Date(now + offset).toLocaleTimeString('de-DE', {
             hour: '2-digit',
@@ -84,5 +96,16 @@ export function TopBar({ state, connected, route, go, offset }: Props) {
         </span>
       </div>
     </header>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 0-.5.4l-.4 2.7a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5a.5.5 0 0 0 .6.2l2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.4l.4-2.7a7.6 7.6 0 0 0 1.7-1l2.5 1a.5.5 0 0 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"
+      />
+    </svg>
   );
 }

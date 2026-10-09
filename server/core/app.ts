@@ -1,7 +1,15 @@
 import { EventEmitter } from 'node:events';
 import type { AppState, ProductionSummary } from '../../shared/types';
 import type { AppConfig, ProductionConfig } from './config';
-import { loadProductionConfigs } from './config';
+import { loadProductionConfigs, writeJsonFile } from './config';
+import type { AppSettingsPatch, ProductionSettings, SettingsResponse } from '../../shared/settings';
+import {
+  SETTINGS_FILE,
+  appSettingsView,
+  mergeAppSettings,
+  mergeProductionSettings,
+  productionSettingsView,
+} from './settings';
 import { Production } from './production';
 import { ObsController } from '../obs/obsController';
 import { TwitchClient } from '../integrations/twitch';
@@ -16,11 +24,12 @@ export class UebApp extends EventEmitter {
   readonly twitch: TwitchClient;
   configs: ProductionConfig[] = [];
   configErrors: string[] = [];
+  configFiles = new Map<string, string>();
   active: Production | null = null;
 
   constructor(
-    readonly cfg: AppConfig,
-    private readonly opts: { productionsDir?: string; persist?: boolean } = {},
+    public cfg: AppConfig,
+    private readonly opts: { productionsDir?: string; persist?: boolean; settingsFile?: string } = {},
   ) {
     super();
     this.obs = new ObsController(cfg.obsUrl, cfg.obsPassword);
@@ -47,7 +56,8 @@ export class UebApp extends EventEmitter {
   }
 
   reloadConfigs(): void {
-    const { configs, errors } = loadProductionConfigs(this.opts.productionsDir);
+    const { configs, errors, files } = loadProductionConfigs(this.opts.productionsDir);
+    this.configFiles = files;
     this.configs = configs.filter((c) => {
       if (formatById(c.format)) return true;
       errors.push(`${c.id}: unbekanntes Format "${c.format}" (verfügbar: ${FORMATS.map((f) => f.id).join(', ')})`);
@@ -72,6 +82,85 @@ export class UebApp extends EventEmitter {
     this.active = prod;
     prod.start();
     void prod.syncObs();
+    this.emit('change');
+  }
+
+  // ---------------------------------------------------------------- Einstellungen
+
+  getSettings(): SettingsResponse {
+    const config = this.active ? this.configs.find((c) => c.id === this.active!.config.id) : undefined;
+    let production: ProductionSettings | null = config ? productionSettingsView(config) : null;
+    // PBs können live in der Regie geändert worden sein – aktuellen Stand anzeigen
+    const runners = (
+      this.active?.getState().formatState as { runners?: Array<{ feedId: string; pbMs: number | null }> }
+    )?.runners;
+    if (production && Array.isArray(runners) && !this.active?.simulation) {
+      production = {
+        ...production,
+        feeds: production.feeds.map((f) => {
+          const r = runners.find((x) => x.feedId === f.id);
+          if (!r) return f;
+          const meta = { ...f.meta };
+          if (r.pbMs) meta.pbMs = r.pbMs;
+          else delete meta.pbMs;
+          return { ...f, meta };
+        }),
+      };
+    }
+    return { app: appSettingsView(this.cfg), production };
+  }
+
+  async saveAppSettings(patch: AppSettingsPatch): Promise<void> {
+    const before = this.cfg;
+    const next = mergeAppSettings(before, patch, this.opts.settingsFile ?? SETTINGS_FILE);
+    this.cfg = next;
+    const obsChanged = next.obsUrl !== before.obsUrl || next.obsPassword !== before.obsPassword;
+    if (next.publicUrl !== before.publicUrl && this.active) this.activate(this.active.config.id);
+    this.active?.addLog('einstellungen', 'App-Einstellungen gespeichert');
+    if (obsChanged) {
+      this.active?.addLog('obs', next.obsUrl ? `Verbinde mit OBS (${next.obsUrl})` : 'OBS getrennt – Simulationsmodus');
+      await this.obs.configure(next.obsUrl, next.obsPassword);
+    }
+    this.emit('change');
+  }
+
+  async saveProductionSettings(settings: ProductionSettings): Promise<void> {
+    const original = this.configs.find((c) => c.id === settings?.id);
+    if (!original) throw new ActionError('Produktion nicht gefunden');
+    const file = this.configFiles.get(original.id);
+    if (!file) throw new ActionError('Konfigurationsdatei der Produktion nicht gefunden');
+    const next = mergeProductionSettings(original, settings);
+    writeJsonFile(file, next);
+    this.configs = this.configs.map((c) => (c.id === next.id ? next : c));
+
+    const oldPb = new Map(original.feeds.map((f) => [f.id, f.meta?.pbMs]));
+    const added = next.feeds.filter((f) => !oldPb.has(f.id)).map((f) => f.label);
+    const removed = original.feeds.filter((f) => !next.feeds.some((n) => n.id === f.id)).map((f) => f.label);
+
+    if (this.active?.config.id === next.id) {
+      this.activate(next.id);
+      const prod = this.active!;
+      // Geänderte PBs überschreiben den gespeicherten Run-Zustand
+      for (const f of next.feeds) {
+        const pb = f.meta?.pbMs;
+        if (pb !== oldPb.get(f.id) || !oldPb.has(f.id)) {
+          await prod
+            .handleAction('format.runner.pb', { feedId: f.id, pbMs: typeof pb === 'number' ? pb : null })
+            .catch(() => undefined);
+        }
+      }
+      const parts = [
+        added.length ? `neu: ${added.join(', ')}` : '',
+        removed.length ? `entfernt: ${removed.join(', ')}` : '',
+      ].filter(Boolean);
+      prod.addLog('einstellungen', `Produktion gespeichert${parts.length ? ` (${parts.join('; ')})` : ''}`);
+      if (this.obs.active && this.obs.status.setupDone) {
+        // Neue Feeds und geänderte Adressen direkt in OBS übernehmen
+        const notes = await this.obs.setup().catch((err) => [`OBS: ${err instanceof Error ? err.message : err}`]);
+        for (const n of notes) prod.addLog('obs', n);
+        await prod.syncObs();
+      }
+    }
     this.emit('change');
   }
 

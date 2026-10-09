@@ -14,7 +14,7 @@ import type {
 } from '../../shared/types';
 import type { ProductionConfig } from './config';
 import { DATA_DIR } from './config';
-import { DEFAULT_LAYOUTS, assignFeed, emptyComposition, feedsInComposition, switchLayout } from './layouts';
+import { defaultLayouts, assignFeed, emptyComposition, feedsInComposition, switchLayout } from './layouts';
 import { decideAutopilot } from './autopilot';
 import { MediaMtxMonitor, type FeedHealth } from './feedMonitor';
 import type { ObsController } from '../obs/obsController';
@@ -85,7 +85,7 @@ export class Production extends EventEmitter {
     super();
     this.config = config;
     this.now = deps.now ?? Date.now;
-    this.layouts = config.layouts?.length ? config.layouts : DEFAULT_LAYOUTS;
+    this.layouts = config.layouts?.length ? config.layouts : defaultLayouts(config.feeds.length);
     this.simulation = config.simulation?.enabled ?? deps.obs.status.mode === 'simulation';
     this.autopilotLayoutId = config.autopilot?.layoutId ?? 'featured';
     this.feeds = config.feeds.map((f) => ({
@@ -537,13 +537,26 @@ export class Production extends EventEmitter {
     }
   }
 
+  /** Belegung an aktuelle Layouts und Feeds anpassen (nach Änderungen in den Einstellungen). */
+  private sanitize(c?: Composition): Composition | null {
+    const layout = c ? this.layoutById(c.layoutId) : undefined;
+    if (!c || !layout) return null;
+    const clean = emptyComposition(layout);
+    for (const slot of layout.slots) {
+      const fid = c.slots?.[slot.id];
+      clean.slots[slot.id] = fid && this.feedById(fid) ? fid : null;
+    }
+    return clean;
+  }
+
   private restore(): void {
     if (this.deps.persist === false || !existsSync(this.dataFile)) return;
     try {
       const data = JSON.parse(readFileSync(this.dataFile, 'utf8')) as Persisted;
-      const valid = (c?: Composition) => !!c && !!this.layoutById(c.layoutId);
-      if (valid(data.preview)) this.preview = data.preview!;
-      if (valid(data.program)) this.program = data.program!;
+      const preview = this.sanitize(data.preview);
+      const program = this.sanitize(data.program);
+      if (preview) this.preview = preview;
+      if (program) this.program = program;
       if (typeof data.audioFollow === 'boolean') this.audioFollow = data.audioFollow;
       if (typeof data.autopilotLayoutId === 'string') this.autopilotLayoutId = data.autopilotLayoutId;
       // Autopilot startet aus Sicherheitsgründen immer aus.

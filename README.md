@@ -20,17 +20,27 @@ npm install
 npm start
 ```
 
-Dann im Browser **http://localhost:4400** öffnen. Ohne weitere Einstellungen läuft alles im **Simulationsmodus**: zehn simulierte Runner spielen Mario 64 mit sechsfacher Geschwindigkeit, inklusive Splits, Resets, PBs und Feed-Ausfällen. So lässt sich die Regie ohne OBS und ohne Runner ausprobieren und proben.
+Dann im Browser **http://localhost:4400** öffnen. Auf dem Mac geht es auch per Doppelklick auf **„ueBroadcast starten.command“** – das Skript installiert beim ersten Mal die Pakete und öffnet den Browser. Ohne weitere Einstellungen läuft alles im **Simulationsmodus**: zehn simulierte Runner spielen Mario 64 mit sechsfacher Geschwindigkeit, inklusive Splits, Resets, PBs und Feed-Ausfällen. So lässt sich die Regie ohne OBS und ohne Runner ausprobieren und proben.
+
+## Einstellungen
+
+Über den Knopf **Einstellungen** oben rechts (oder einen Klick auf den OBS-Status) öffnet sich die Einstellungsseite mit drei Reitern:
+
+| Reiter                                      | Inhalt                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Runner** (bei anderen Formaten **Feeds**) | Runner hinzufügen, bearbeiten, sortieren und entfernen. Pro Runner: Name, Twitch-Kanal, Discord, PB, Plattform, Notizen, Signalquelle (Stream über den Ingest-Server oder Browser-Link), Vorschau-Adresse, Ingest-Pfad. Dazu die Sendeadresse und der Split-Relay-Befehl zum Weitergeben. |
+| **Produktion**                              | Name, Beschreibung, Wertung, Simulationsmodus, Ingest-Server (MediaMTX), Autopilot-Haltezeit, zusätzliche OBS-Quellen, Twitch-Marker, Token für das Split-Relay                                                                                                                           |
+| **OBS-Verbindung**                          | Status, WebSocket-Adresse und Passwort, „OBS einrichten“, Overlay-Adresse                                                                                                                                                                                                                 |
+
+Änderungen sammeln sich in einer Leiste unten und werden erst mit **Speichern** übernommen. Die Produktion lädt dann sofort neu: Neue Runner erscheinen in Multiview, Radar und Tabelle, das Raster „Alle“ passt sich der Anzahl an. Ist OBS bereits eingerichtet, legt ueBroadcast die Quellen neuer Runner direkt an. Laufende Runs, Bestzeiten und das Logbuch bleiben erhalten.
+
+Gespeichert wird in `productions/<id>.json` (Produktion und Runner) und `data/settings.json` (OBS-Zugang, Overlay-Adresse, Relay-Token; nur lokal, nicht im Repository).
 
 ## Mit OBS verbinden
 
 1. In OBS **Werkzeuge → WebSocket-Servereinstellungen** öffnen, Server aktivieren, Port und Passwort notieren.
-2. `.env.example` nach `.env` kopieren und eintragen:
-   ```ini
-   OBS_URL=ws://127.0.0.1:4455
-   OBS_PASSWORD=dein-passwort
-   ```
-3. `npm start` – oben rechts erscheint „OBS: nicht eingerichtet“. Auf **OBS einrichten** klicken.
+2. In ueBroadcast unter **Einstellungen → OBS-Verbindung** Adresse (meist `ws://127.0.0.1:4455`) und Passwort eintragen und speichern. Alternativ `OBS_URL` und `OBS_PASSWORD` in einer `.env`-Datei; Werte aus den Einstellungen haben Vorrang.
+3. Sobald „Verbunden – OBS ist noch nicht eingerichtet“ erscheint, auf **OBS einrichten** klicken.
 
 Das Einrichten legt in OBS an (mehrfach ausführbar, ändert nichts doppelt):
 
@@ -91,21 +101,20 @@ Alle Regie-Aktionen sind per HTTP erreichbar, z. B. über das Generic-HTTP-Modul
 
 Die Vorlage ist [`productions/sm64-marathon.json`](productions/sm64-marathon.json). Für den Echtbetrieb:
 
-1. **Runner eintragen:** je Feed `label` und `meta.runner` (Anzeigename) setzen, optional die PB als `meta.pbMs` in Millisekunden (z. B. `3120000` für 52:00). Die PB lässt sich auch in der Regie im Reiter „Runs & Tabelle“ ändern.
+1. **Runner eintragen:** unter **Einstellungen → Runner** alle Runner anlegen (Name, PB, Twitch, Kontakt …). Die PB lässt sich auch live in der Regie im Reiter „Runs & Tabelle“ ändern.
 2. **Ingest-Server:** [MediaMTX](https://github.com/bluenviron/mediamtx) auf einem VPS betreiben, API aktivieren (Port 9997). Je Runner einen Pfad `runner01` … `runner10` mit eigenem Publish-Passwort anlegen.
    - Runner senden aus OBS per SRT an `srt://<ingest>:8890?streamid=publish:runner01:<user>:<pass>` (720p60, 4–6 Mbit/s, Keyframe 1–2 s).
-   - In der Konfiguration: `source.url` = `srt://<ingest>:8890?streamid=read:runner01`, `previewUrl` = `http://<ingest>:8889/runner01` (WebRTC-Vorschau für die Multiview), `ingest.mediamtxApi` = `http://<ingest>:9997` (Verbindungsstatus und Bitrate).
+   - Unter **Einstellungen → Produktion** die Adresse des Ingest-Servers eintragen. Danach füllt **„Adressen vom Ingest-Server übernehmen“** beim Runner Stream-Adresse (`srt://<ingest>:8890?streamid=read:runner01`), Vorschau (`http://<ingest>:8889/runner01`) und Pfad aus; die API-Adresse (`http://<ingest>:9997`, für Verbindungsstatus und Bitrate) lässt sich ebenso ableiten.
    - Genaue Syntax für Pfade und Zugangsdaten in der MediaMTX-Dokumentation prüfen.
 3. **Splits abstimmen:** Alle Runner nutzen LiveSplit mit derselben Split-Einteilung. Die Einteilung steht als `formatConfig.splits` in der Konfiguration (`name`, `stars` = Sterne nach dem Split, `pbAt` = Anteil der PB-Zeit). Ohne Angabe gelten die Beispiel-Splits aus `server/formats/sm64/splits.ts` – die vorab mit den Runnern abstimmen.
 4. **Split-Relay bei jedem Runner:** In LiveSplit den TCP-Server starten (Control → Start TCP Server, Port 16834). Dann beim Runner:
    ```bash
    node split-relay.mjs --server https://<regie-adresse> --feed r01 --token <UEB_RELAY_TOKEN>
    ```
-   Das Relay ([`tools/split-relay.mjs`](tools/split-relay.mjs)) hat keine Abhängigkeiten und braucht nur Node.js. Es sendet ausgehend, beim Runner ist keine Portfreigabe nötig. Fällt ein Relay aus, bedient die Regie den Run im Reiter „Runs & Tabelle“ von Hand.
-5. **Wertung:** `formatConfig.scoring` = `bestTime`, `finishedRuns` oder `totalStars`. Lässt sich auch live in der Regie umstellen.
-6. `simulation.enabled` auf `false` setzen. Mit `true` lässt sich auch mit echtem OBS proben, dann mit simulierten Runs.
+   Den fertigen Befehl je Runner zeigt **Einstellungen → Runner** zum Kopieren an. Das Relay ([`tools/split-relay.mjs`](tools/split-relay.mjs)) hat keine Abhängigkeiten und braucht nur Node.js. Es sendet ausgehend, beim Runner ist keine Portfreigabe nötig. Fällt ein Relay aus, bedient die Regie den Run im Reiter „Runs & Tabelle“ von Hand.
+5. **Wertung** und **Simulationsmodus** unter **Einstellungen → Produktion** festlegen. Für das echte Event die Simulation ausschalten; mit Simulation lässt sich auch mit echtem OBS proben.
 
-Damit die Runner die Regie erreichen, muss ueBroadcast von außen erreichbar sein (z. B. hinter einem Reverse-Proxy mit HTTPS). Dann unbedingt `UEB_RELAY_TOKEN` setzen.
+Damit die Runner die Regie erreichen, muss ueBroadcast von außen erreichbar sein (z. B. hinter einem Reverse-Proxy mit HTTPS). Dann unbedingt unter **Einstellungen → Produktion** ein Relay-Token erzeugen.
 
 ## Twitch
 

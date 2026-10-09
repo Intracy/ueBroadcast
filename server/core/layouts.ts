@@ -13,7 +13,7 @@ function grid(cols: number, rows: number, count: number, top = 0.08, height = 0.
 }
 
 /** Standard-Layouts für Multi-Feed-Produktionen (16:9-Leinwand). */
-export const DEFAULT_LAYOUTS: LayoutDef[] = [
+const BASE_LAYOUTS: LayoutDef[] = [
   { id: 'single', name: 'Einzel', hotkey: 'q', slots: [{ id: 'main', x: 0, y: 0, w: 1, h: 1 }] },
   {
     id: 'duo',
@@ -36,9 +36,32 @@ export const DEFAULT_LAYOUTS: LayoutDef[] = [
     ],
   },
   { id: 'quad', name: '4er', hotkey: 'r', slots: grid(2, 2, 4, 0, 1) },
-  { id: 'grid', name: 'Alle', hotkey: 't', slots: grid(5, 2, 10, 0.18, 0.64) },
+  { id: 'grid', name: 'Alle', hotkey: 't', slots: [] },
   { id: 'pause', name: 'Pause', hotkey: 'y', slots: [] },
 ];
+
+/** Raster „Alle“ passend zur Anzahl der Feeds: Spalten so wählen, dass 4:3-Bilder die Leinwand gut füllen. */
+export function gridSlots(count: number): SlotDef[] {
+  if (count <= 0) return [];
+  let best = { cols: 1, rows: 1, size: 0 };
+  for (let cols = 1; cols <= count; cols++) {
+    const rows = Math.ceil(count / cols);
+    // Bildbreite einer 4:3-Kachel bei Leinwand 16:9 (Breite 16, Höhe 9)
+    const size = Math.min(16 / cols, ((9 / rows) * 4) / 3);
+    if (size > best.size + 1e-9) best = { cols, rows, size };
+  }
+  const { cols, rows, size } = best;
+  const usedH = Math.min(1, (((size * 3) / 4) * rows) / 9);
+  const top = (1 - usedH) / 2;
+  return grid(cols, rows, count, top, usedH);
+}
+
+export function defaultLayouts(feedCount: number): LayoutDef[] {
+  return BASE_LAYOUTS.map((l) => (l.id === 'grid' ? { ...l, slots: gridSlots(feedCount) } : l));
+}
+
+/** Standard-Layouts für 10 Feeds (Rückwärtskompatibilität, Tests). */
+export const DEFAULT_LAYOUTS: LayoutDef[] = defaultLayouts(10);
 
 export function emptyComposition(layout: LayoutDef): Composition {
   return { layoutId: layout.id, slots: Object.fromEntries(layout.slots.map((s) => [s.id, null])) };

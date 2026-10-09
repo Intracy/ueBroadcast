@@ -138,6 +138,7 @@
     }
   ],
   "ingest": {
+    "host": "ingest.example.com",
     "mediamtxApi": "http://ingest.example.com:9997"
   },
   "obs": {

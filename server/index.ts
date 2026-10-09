@@ -1,9 +1,10 @@
 import { loadEnvFile, readAppConfig } from './core/config';
 import { UebApp, VERSION } from './core/app';
+import { applyStoredSettings } from './core/settings';
 import { createHttpServer } from './http';
 
 loadEnvFile();
-const cfg = readAppConfig();
+const cfg = applyStoredSettings(readAppConfig());
 const app = new UebApp(cfg);
 app.start();
 

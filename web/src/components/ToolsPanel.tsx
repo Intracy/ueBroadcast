@@ -211,6 +211,9 @@ function ObsTab({ state }: { state: AppState }) {
           <button className="btn" disabled={obs.mode === 'simulation'} onClick={() => send('obs.reconnect')}>
             Neu verbinden
           </button>
+          <a className="btn ghost" href="#/einstellungen/obs">
+            Verbindung ändern
+          </a>
         </div>
       </div>
       <div>

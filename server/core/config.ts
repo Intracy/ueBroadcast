@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { LayoutDef } from '../../shared/types';
 
@@ -78,7 +78,8 @@ export interface ProductionConfig {
   feeds: FeedConfig[];
   layouts?: LayoutDef[];
   defaultLayout?: string;
-  ingest?: { mediamtxApi?: string };
+  /** Ingest-Server: `host` für automatisch erzeugte Adressen, `mediamtxApi` für Feed-Status */
+  ingest?: { host?: string; mediamtxApi?: string };
   obs?: {
     /** Vorhandene OBS-Quellen/Szenen, die über den Feeds liegen sollen (z. B. Kommentar-Kameras) */
     extraSources?: string[];
@@ -118,19 +119,35 @@ export function validateProductionConfig(raw: unknown, source: string): Producti
   return c as unknown as ProductionConfig;
 }
 
-export function loadProductionConfigs(dir = PRODUCTIONS_DIR): { configs: ProductionConfig[]; errors: string[] } {
+export function loadProductionConfigs(dir = PRODUCTIONS_DIR): {
+  configs: ProductionConfig[];
+  errors: string[];
+  files: Map<string, string>;
+} {
   const configs: ProductionConfig[] = [];
   const errors: string[] = [];
-  if (!existsSync(dir)) return { configs, errors };
+  const files = new Map<string, string>();
+  if (!existsSync(dir)) return { configs, errors, files };
   for (const file of readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .sort()) {
     try {
       const raw = JSON.parse(readFileSync(join(dir, file), 'utf8'));
-      configs.push(validateProductionConfig(raw, file));
+      const config = validateProductionConfig(raw, file);
+      if (files.has(config.id)) throw new ConfigError(`${file}: Produktions-ID "${config.id}" doppelt`);
+      configs.push(config);
+      files.set(config.id, join(dir, file));
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
     }
   }
-  return { configs, errors };
+  return { configs, errors, files };
+}
+
+/** Schreibt eine JSON-Datei atomar (erst temporär, dann umbenennen). */
+export function writeJsonFile(path: string, data: unknown): void {
+  mkdirSync(resolve(path, '..'), { recursive: true });
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
+  renameSync(tmp, path);
 }
