@@ -8,6 +8,7 @@ import { WEB_DIST_DIR } from './core/config';
 import type { UebApp } from './core/app';
 import { ActionError } from './formats/types';
 import { FrameCache } from './core/frameCache';
+import { embedPage } from './embedPage';
 import { feedInputName } from './obs/obsController';
 
 const MIME: Record<string, string> = {
@@ -98,6 +99,18 @@ export function createHttpServer(app: UebApp): Server {
       if (path === '/api/obs/scenes' && req.method === 'GET') {
         if (!app.obs.active) return sendJson(res, 409, { error: 'OBS ist nicht verbunden' });
         return sendJson(res, 200, { scenes: await app.obs.listScenes() });
+      }
+      // Player-Seite für OBS-Browserquellen (YouTube/Twitch-Links)
+      if (path === '/embed' && req.method === 'GET') {
+        const html = embedPage(
+          url.searchParams.get('url') ?? '',
+          req.headers.host ?? 'localhost',
+          url.searchParams.get('muted') === '1',
+        );
+        if (!html) return sendJson(res, 400, { error: 'Kein YouTube- oder Twitch-Link' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+        res.end(html);
+        return;
       }
       // Vorschaubild eines Runner-Feeds, wie OBS ihn gerade rendert (für Links, die sich nicht einbetten lassen)
       const frameMatch = /^\/api\/feeds\/([^/]+)\/frame$/.exec(path);

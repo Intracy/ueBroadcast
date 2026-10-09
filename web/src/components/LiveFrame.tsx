@@ -1,24 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { FeedState } from '../../../shared/types';
-
-/** Startzeit aus YouTube-Links („t=90“, „t=1m30s“) in Sekunden. */
-function youtubeStart(t: string | null): number | null {
-  if (!t) return null;
-  if (/^\d+$/.test(t)) return Number(t);
-  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(t);
-  if (!m || !m[0]) return null;
-  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
-}
-
-/** Video-ID aus allen üblichen YouTube-Links (watch, youtu.be, live, shorts, embed). */
-function youtubeId(u: URL): string | null {
-  const host = u.hostname.replace(/^(www|m|music)\./, '');
-  if (host === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
-  if (host !== 'youtube.com' && host !== 'youtube-nocookie.com') return null;
-  if (u.pathname === '/watch') return u.searchParams.get('v');
-  const m = /^\/(?:live|shorts|embed)\/([\w-]{6,})/.exec(u.pathname);
-  return m ? m[1] : null;
-}
+import { playerUrl } from '../../../shared/streamUrl';
 
 /**
  * Vorschau-Adresse für die Regie aufbereiten.
@@ -49,51 +31,8 @@ export function previewSrc(
     // VDO.Ninja erwartet Schalter ohne „=“
     return u.toString().replace(/=(?=&|$)/g, '');
   }
-  const yt = youtubeId(u);
-  if (yt) {
-    const embed = new URL(`https://www.youtube.com/embed/${encodeURIComponent(yt)}`);
-    for (const [k, v] of [
-      ['autoplay', '1'],
-      ['mute', '1'],
-      ['controls', '0'],
-      ['playsinline', '1'],
-      ['rel', '0'],
-      ['iv_load_policy', '3'],
-      ['disablekb', '1'],
-      // Endlosschleife (sonst bleibt das Bild am Ende stehen) und Steuerung per postMessage
-      ['loop', '1'],
-      ['playlist', yt],
-      ['enablejsapi', '1'],
-    ]) {
-      embed.searchParams.set(k, v);
-    }
-    if (origin) embed.searchParams.set('origin', origin);
-    const start = youtubeStart(u.searchParams.get('t') ?? u.searchParams.get('start'));
-    if (start) embed.searchParams.set('start', String(start));
-    return embed.toString();
-  }
-  const twitchHost = u.hostname.replace(/^(www|m)\./, '');
-  if (twitchHost === 'twitch.tv' || twitchHost === 'player.twitch.tv') {
-    const player = new URL('https://player.twitch.tv/');
-    if (twitchHost === 'player.twitch.tv') {
-      for (const k of ['channel', 'video']) {
-        const v = u.searchParams.get(k);
-        if (v) player.searchParams.set(k, v);
-      }
-    } else {
-      const parts = u.pathname.split('/').filter(Boolean);
-      if (parts[0] === 'videos' && parts[1]) player.searchParams.set('video', parts[1]);
-      else if (parts[0]) player.searchParams.set('channel', parts[0]);
-    }
-    if (player.searchParams.has('channel') || player.searchParams.has('video')) {
-      // Twitch bettet nur ein, wenn die einbettende Seite als „parent“ genannt ist
-      player.searchParams.set('parent', parentHost);
-      player.searchParams.set('muted', 'true');
-      player.searchParams.set('autoplay', 'true');
-      player.searchParams.set('controls', 'false');
-      return player.toString();
-    }
-  }
+  const player = playerUrl(url, { muted: true, parentHost, origin });
+  if (player) return player;
   if (!u.search) {
     u.searchParams.set('controls', 'false');
     u.searchParams.set('muted', 'true');

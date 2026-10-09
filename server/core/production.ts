@@ -17,6 +17,7 @@ import type {
 } from '../../shared/types';
 import type { ProductionConfig } from './config';
 import { DATA_DIR } from './config';
+import { needsPlayer } from '../../shared/streamUrl';
 import { defaultLayouts, assignFeed, emptyComposition, feedsInComposition, switchLayout } from './layouts';
 import { decideAutopilot } from './autopilot';
 import { MediaMtxMonitor, type FeedHealth } from './feedMonitor';
@@ -134,7 +135,15 @@ export class Production extends EventEmitter {
   start(): void {
     this.format.start();
     this.deps.obs.setSpec({
-      feeds: this.config.feeds.map((f) => ({ id: f.id, label: f.label, source: f.source })),
+      feeds: this.config.feeds.map((f) => ({
+        id: f.id,
+        label: f.label,
+        // YouTube-/Twitch-Seiten laufen in OBS über die eigene Player-Seite (nur das Video, mit Ton)
+        source:
+          f.source?.kind === 'browser' && needsPlayer(f.source.url)
+            ? { kind: 'browser' as const, url: `${this.deps.publicUrl}/embed?url=${encodeURIComponent(f.source.url)}` }
+            : f.source,
+      })),
       overlayUrl: `${this.deps.publicUrl}/overlay.html?view=program`,
       extraSources: this.config.obs?.extraSources ?? [],
       commentaryScene: this.commentary?.obsScene ?? null,
@@ -170,6 +179,8 @@ export class Production extends EventEmitter {
         this.obsError(err);
       }
     }
+    const updated = await this.deps.obs.syncSourceUrls().catch(() => [] as string[]);
+    for (const name of updated) this.addLog('obs', `Adresse von „${name}“ aktualisiert`);
     await this.deps.obs.applyProgram(layout, this.program, this.hostBox(this.program)).catch((e) => this.obsError(e));
     await this.applyAudio();
   }

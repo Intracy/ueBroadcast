@@ -178,6 +178,31 @@ export class ObsController extends EventEmitter {
     if (failed) throw new Error(failed.requestStatus?.comment ?? 'OBS-Anfrage fehlgeschlagen');
   }
 
+  /**
+   * Hält die Adressen der Feed-Quellen aktuell (z. B. nach Änderungen in den Einstellungen oder wenn
+   * YouTube-/Twitch-Links auf die Player-Seite umgestellt werden), ohne „OBS einrichten“ auszulösen.
+   */
+  async syncSourceUrls(): Promise<string[]> {
+    if (!this.active || !this.spec) return [];
+    const changed: string[] = [];
+    for (const feed of this.spec.feeds) {
+      if (!feed.source) continue;
+      const inputName = feedInputName(feed.id);
+      const key = feed.source.kind === 'media' ? 'input' : 'url';
+      try {
+        const { inputSettings } = await this.call<{ inputSettings: Record<string, unknown> }>('GetInputSettings', {
+          inputName,
+        });
+        if (inputSettings[key] === feed.source.url) continue;
+        await this.call('SetInputSettings', { inputName, inputSettings: { [key]: feed.source.url } });
+        changed.push(inputName);
+      } catch {
+        // Quelle (noch) nicht vorhanden – legt „OBS einrichten“ an
+      }
+    }
+    return changed;
+  }
+
   /** Lädt die Overlay-Browserquelle neu (ohne Cache). */
   async reloadOverlay(): Promise<boolean> {
     if (!this.active || !this.obs) return false;
