@@ -1,13 +1,20 @@
 import type { Composition, LayoutDef, SlotDef } from '../../shared/types';
 
-function grid(cols: number, rows: number, count: number, top = 0.08, height = 0.84): SlotDef[] {
+/**
+ * Raster aus 16:9-Kacheln auf der 16:9-Leinwand. Auf dieser Leinwand ist eine Kachel genau dann 16:9,
+ * wenn ihre normierte Breite gleich ihrer normierten Höhe ist. Das Raster wird mittig gesetzt,
+ * eine unvollständige letzte Reihe ebenfalls.
+ */
+function grid16x9(cols: number, rows: number, count: number): SlotDef[] {
+  const size = Math.min(1 / cols, 1 / rows);
+  const top = (1 - rows * size) / 2;
   const slots: SlotDef[] = [];
-  const w = 1 / cols;
-  const h = height / rows;
   for (let i = 0; i < count; i++) {
-    const c = i % cols;
     const r = Math.floor(i / cols);
-    slots.push({ id: `s${i + 1}`, x: c * w, y: top + r * h, w, h });
+    const c = i % cols;
+    const inRow = Math.min(cols, count - r * cols);
+    const left = (1 - inRow * size) / 2;
+    slots.push({ id: `s${i + 1}`, x: left + c * size, y: top + r * size, w: size, h: size });
   }
   return slots;
 }
@@ -20,8 +27,9 @@ const BASE_LAYOUTS: LayoutDef[] = [
     name: 'Duell',
     hotkey: 'w',
     slots: [
-      { id: 'left', x: 0, y: 0.12, w: 0.5, h: 0.72 },
-      { id: 'right', x: 0.5, y: 0.12, w: 0.5, h: 0.72 },
+      // Zwei volle 16:9-Bilder nebeneinander, darunter Platz für Bauchbinde und Ticker
+      { id: 'left', x: 0, y: 0.2, w: 0.5, h: 0.5 },
+      { id: 'right', x: 0.5, y: 0.2, w: 0.5, h: 0.5 },
     ],
   },
   {
@@ -29,31 +37,29 @@ const BASE_LAYOUTS: LayoutDef[] = [
     name: 'Haupt + 3',
     hotkey: 'e',
     slots: [
-      { id: 'main', x: 0, y: 0, w: 0.75, h: 1 },
-      { id: 'side1', x: 0.75, y: 0, w: 0.25, h: 1 / 3 },
-      { id: 'side2', x: 0.75, y: 1 / 3, w: 0.25, h: 1 / 3 },
-      { id: 'side3', x: 0.75, y: 2 / 3, w: 0.25, h: 1 / 3 },
+      // Hauptbild 3/4 und drei Nebenbilder 1/4 – alle 16:9; unten bleibt ein Band für Infos und Ticker
+      { id: 'main', x: 0, y: 0, w: 0.75, h: 0.75 },
+      { id: 'side1', x: 0.75, y: 0, w: 0.25, h: 0.25 },
+      { id: 'side2', x: 0.75, y: 0.25, w: 0.25, h: 0.25 },
+      { id: 'side3', x: 0.75, y: 0.5, w: 0.25, h: 0.25 },
     ],
   },
-  { id: 'quad', name: '4er', hotkey: 'r', slots: grid(2, 2, 4, 0, 1) },
+  { id: 'quad', name: '4er', hotkey: 'r', slots: grid16x9(2, 2, 4) },
   { id: 'grid', name: 'Alle', hotkey: 't', slots: [] },
   { id: 'pause', name: 'Pause', hotkey: 'y', slots: [] },
 ];
 
-/** Raster „Alle“ passend zur Anzahl der Feeds: Spalten so wählen, dass 4:3-Bilder die Leinwand gut füllen. */
+/** Raster „Alle“ passend zur Anzahl der Feeds: so viele Spalten, dass die 16:9-Kacheln möglichst groß werden. */
 export function gridSlots(count: number): SlotDef[] {
   if (count <= 0) return [];
   let best = { cols: 1, rows: 1, size: 0 };
   for (let cols = 1; cols <= count; cols++) {
     const rows = Math.ceil(count / cols);
-    // Bildbreite einer 4:3-Kachel bei Leinwand 16:9 (Breite 16, Höhe 9)
-    const size = Math.min(16 / cols, ((9 / rows) * 4) / 3);
-    if (size > best.size + 1e-9) best = { cols, rows, size };
+    const size = Math.min(1 / cols, 1 / rows);
+    // Bei Gleichstand mehr Spalten: weniger Reihen, mehr Platz unten für Ticker und Bauchbinde
+    if (size >= best.size - 1e-9) best = { cols, rows, size };
   }
-  const { cols, rows, size } = best;
-  const usedH = Math.min(1, (((size * 3) / 4) * rows) / 9);
-  const top = (1 - usedH) / 2;
-  return grid(cols, rows, count, top, usedH);
+  return grid16x9(best.cols, best.rows, count);
 }
 
 export function defaultLayouts(feedCount: number): LayoutDef[] {

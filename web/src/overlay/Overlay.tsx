@@ -80,7 +80,7 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
           const compact = slot.w * 1920 < 760;
           const plateTop = Math.min(slot.y + slot.h, bottomEdge);
           // Bauchbinde hat Vorrang: Schilder im Bereich unten links ausblenden
-          if (g.lowerThird.visible && slot.x < 0.32 && plateTop > 0.7) return null;
+          if (g.lowerThird.visible && slot.x < 0.32 && plateTop > 0.76) return null;
           return (
             <div
               key={slot.id}

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LAYOUTS, assignFeed, emptyComposition, slotTransform, switchLayout } from '../server/core/layouts';
+import {
+  DEFAULT_LAYOUTS,
+  assignFeed,
+  emptyComposition,
+  gridSlots,
+  slotTransform,
+  switchLayout,
+} from '../server/core/layouts';
 
 const layout = (id: string) => DEFAULT_LAYOUTS.find((l) => l.id === id)!;
 
@@ -24,6 +31,24 @@ describe('Layouts', () => {
     const t = slotTransform({ x: 0.75, y: 1 / 3, w: 0.25, h: 1 / 3 }, 1920, 1080);
     expect(t).toMatchObject({ positionX: 1440, positionY: 360, boundsWidth: 480, boundsHeight: 360 });
     expect(t.boundsType).toBe('OBS_BOUNDS_SCALE_INNER');
+  });
+
+  it('hat in allen Standard-Layouts unbeschnittene 16:9-Slots', () => {
+    // Auf der 16:9-Leinwand ist ein Slot genau dann 16:9, wenn normierte Breite und Höhe gleich sind
+    for (const l of [
+      ...DEFAULT_LAYOUTS,
+      ...[1, 2, 3, 5, 7, 12].map((n) => ({ id: `grid${n}`, slots: gridSlots(n) })),
+    ]) {
+      for (const s of l.slots) expect(s.w, `${l.id}/${s.id}`).toBeCloseTo(s.h, 9);
+    }
+    // Haupt + 3: Hauptbild 3/4, Nebenbilder stapeln sich genau daneben
+    const f = layout('featured').slots;
+    expect(f[0]).toMatchObject({ w: 0.75, h: 0.75 });
+    expect(f[3].y + f[3].h).toBeCloseTo(0.75, 9);
+    // Raster mit 10 Feeds: 4 Spalten, letzte Reihe mittig
+    const g = gridSlots(10);
+    expect(g[0].w).toBeCloseTo(0.25, 9);
+    expect(g[8].x).toBeCloseTo(0.25, 9);
   });
 
   it('hat alle Slots innerhalb der Leinwand', () => {
