@@ -29,11 +29,14 @@ describe('Live-Bild in der Regie', () => {
 
   it('macht aus YouTube- und Twitch-Seiten einbettbare Player (stumm, Autoplay)', () => {
     const yt =
-      'https://www.youtube.com/embed/tBhamFUoyJk?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&iv_load_policy=3&disablekb=1';
+      'https://www.youtube.com/embed/tBhamFUoyJk?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&iv_load_policy=3&disablekb=1&loop=1&playlist=tBhamFUoyJk&enablejsapi=1';
     expect(previewSrc('https://www.youtube.com/watch?v=tBhamFUoyJk&fs=1')).toBe(yt);
     expect(previewSrc('https://youtu.be/tBhamFUoyJk')).toBe(yt);
     expect(previewSrc('https://youtube.com/live/tBhamFUoyJk?feature=share')).toBe(yt);
     expect(previewSrc('https://m.youtube.com/watch?v=tBhamFUoyJk&t=1m30s')).toBe(`${yt}&start=90`);
+    expect(previewSrc('https://youtu.be/tBhamFUoyJk', 1200, 50, 'localhost', 'http://localhost:4400')).toBe(
+      `${yt}&origin=http%3A%2F%2Flocalhost%3A4400`,
+    );
     expect(previewSrc('https://www.twitch.tv/huebi', 1200, 50, 'localhost')).toBe(
       'https://player.twitch.tv/?channel=huebi&parent=localhost&muted=true&autoplay=true&controls=false',
     );

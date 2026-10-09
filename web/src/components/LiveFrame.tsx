@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { FeedState } from '../../../shared/types';
 
 /** Startzeit aus YouTube-Links („t=90“, „t=1m30s“) in Sekunden. */
@@ -26,7 +26,13 @@ function youtubeId(u: URL): string | null {
  * - YouTube/Twitch: Seiten-Links lassen sich nicht einbetten – stattdessen den Player, stumm mit Autoplay
  * - MediaMTX-WebRTC-Seite: ohne Bedienelemente, stumm, Autoplay
  */
-export function previewSrc(url: string, bitrateKbps = 1200, scalePct = 50, parentHost = 'localhost'): string {
+export function previewSrc(
+  url: string,
+  bitrateKbps = 1200,
+  scalePct = 50,
+  parentHost = 'localhost',
+  origin?: string,
+): string {
   let u: URL;
   try {
     u = new URL(url);
@@ -54,9 +60,14 @@ export function previewSrc(url: string, bitrateKbps = 1200, scalePct = 50, paren
       ['rel', '0'],
       ['iv_load_policy', '3'],
       ['disablekb', '1'],
+      // Endlosschleife (sonst bleibt das Bild am Ende stehen) und Steuerung per postMessage
+      ['loop', '1'],
+      ['playlist', yt],
+      ['enablejsapi', '1'],
     ]) {
       embed.searchParams.set(k, v);
     }
+    if (origin) embed.searchParams.set('origin', origin);
     const start = youtubeStart(u.searchParams.get('t') ?? u.searchParams.get('start'));
     if (start) embed.searchParams.set('start', String(start));
     return embed.toString();
@@ -102,8 +113,17 @@ export function canShowLive(feed: FeedState | undefined, simulation: boolean): b
   return feed.sourceKind === 'browser' && feed.status !== 'offline';
 }
 
+/** YouTube-Player per postMessage anstoßen: stumm schalten und abspielen. */
+function nudgeYouTube(frame: HTMLIFrameElement | null) {
+  const win = frame?.contentWindow;
+  if (!win) return;
+  for (const func of ['mute', 'playVideo']) {
+    win.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube.com');
+  }
+}
+
 /**
- * Live-Bild eines Feeds als eingebettete Seite (VDO.Ninja, MediaMTX-WebRTC …).
+ * Live-Bild eines Feeds als eingebettete Seite (VDO.Ninja, YouTube, Twitch, MediaMTX-WebRTC …).
  * Memo: Die Regie zeichnet mehrmals pro Sekunde neu (Timer) – das Bild selbst darf davon nichts merken.
  */
 export const LiveFrame = memo(function LiveFrame({
@@ -117,15 +137,33 @@ export const LiveFrame = memo(function LiveFrame({
   bitrateKbps?: number;
   scalePct?: number;
 }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const src = previewSrc(url, bitrateKbps, scalePct, location.hostname, location.origin);
+  const youtube = src.startsWith('https://www.youtube.com/embed/');
+
+  // Autoplay greift bei vielen kleinen YouTube-Playern nicht zuverlässig: nach dem Laden und danach
+  // regelmäßig „stumm + abspielen“ schicken, damit kein Player auf dem Startbild stehen bleibt.
+  useEffect(() => {
+    if (!youtube) return;
+    const timers = [800, 2500, 6000].map((ms) => setTimeout(() => nudgeYouTube(ref.current), ms));
+    const interval = setInterval(() => nudgeYouTube(ref.current), 15000);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(interval);
+    };
+  }, [src, youtube]);
+
   return (
     <iframe
+      ref={ref}
       className="live-frame"
-      src={previewSrc(url, bitrateKbps, scalePct, location.hostname)}
+      src={src}
       title={`Live-Bild ${label}`}
       allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
       referrerPolicy="strict-origin-when-cross-origin"
       tabIndex={-1}
       loading="eager"
+      onLoad={youtube ? () => nudgeYouTube(ref.current) : undefined}
     />
   );
 });
