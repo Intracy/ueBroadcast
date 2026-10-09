@@ -27,6 +27,21 @@ describe('Live-Bild in der Regie', () => {
     );
   });
 
+  it('macht aus YouTube- und Twitch-Seiten einbettbare Player (stumm, Autoplay)', () => {
+    const yt =
+      'https://www.youtube.com/embed/tBhamFUoyJk?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&iv_load_policy=3&disablekb=1';
+    expect(previewSrc('https://www.youtube.com/watch?v=tBhamFUoyJk&fs=1')).toBe(yt);
+    expect(previewSrc('https://youtu.be/tBhamFUoyJk')).toBe(yt);
+    expect(previewSrc('https://youtube.com/live/tBhamFUoyJk?feature=share')).toBe(yt);
+    expect(previewSrc('https://m.youtube.com/watch?v=tBhamFUoyJk&t=1m30s')).toBe(`${yt}&start=90`);
+    expect(previewSrc('https://www.twitch.tv/huebi', 1200, 50, 'localhost')).toBe(
+      'https://player.twitch.tv/?channel=huebi&parent=localhost&muted=true&autoplay=true&controls=false',
+    );
+    expect(previewSrc('https://twitch.tv/videos/123456', 1200, 50, 'regie.local')).toBe(
+      'https://player.twitch.tv/?video=123456&parent=regie.local&muted=true&autoplay=true&controls=false',
+    );
+  });
+
   it('lässt MediaMTX-Vorschauen wie gehabt', () => {
     expect(previewSrc('http://ingest:8889/runner01')).toBe(
       'http://ingest:8889/runner01?controls=false&muted=true&autoplay=true',
@@ -39,7 +54,7 @@ describe('Live-Bild in der Regie', () => {
     // Simulation: hinterlegte Links zeigen, außer bei simuliertem Ausfall oder ohne Link
     expect(canShowLive(feed({ status: 'live' }), true)).toBe(true);
     expect(canShowLive(feed({ sourceKind: 'media', previewUrl: 'http://ingest:8889/r', status: 'live' }), true)).toBe(
-      true,
+      false,
     );
     expect(canShowLive(feed({ status: 'offline' }), true)).toBe(false);
     expect(canShowLive(feed({ previewUrl: null }), true)).toBe(false);
