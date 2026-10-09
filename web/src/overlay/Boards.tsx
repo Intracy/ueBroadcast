@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { Rect } from '../../../shared/host';
 import type { BoardData, BoardRow } from '../formats/board';
+import './boards.css';
 
 /** Kompakte Karte eines Runners für Band und Lower Third. */
 function BoardCard({ row, onAir }: { row: BoardRow; onAir: boolean }) {

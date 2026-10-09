@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type {
   CommentaryInfo,
   Composition,
@@ -10,6 +11,8 @@ import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/hos
 import { useCommentarySnapshot } from './Commentary';
 import { DeltaText, TimerText } from './bits';
 import { LiveFrame, canShowLive } from './LiveFrame';
+import type { BoardData } from '../formats/board';
+import { BoardFull, BoardLower, BoardStrip } from '../overlay/Boards';
 
 interface Props {
   kind: 'preview' | 'program';
@@ -30,6 +33,10 @@ interface Props {
   tickerOn: boolean;
   /** Grafik-Ebenen (Tabelle), wenn das Format eine Tabelle hat */
   graphics?: GraphicsState | null;
+  /** Tabellendaten des Formats */
+  board?: BoardData | null;
+  /** Name der Produktion (Kopf der Vollbild-Tabelle) */
+  eventName?: string;
   /** OBS verbunden – Standbild der Kommentar-Szene abrufbar */
   snapshotAvailable: boolean;
 }
@@ -52,6 +59,8 @@ export function Monitor({
   commentary,
   tickerOn,
   graphics,
+  board,
+  eventName = '',
   snapshotAvailable,
 }: Props) {
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
@@ -60,9 +69,12 @@ export function Monitor({
   const snapshot = useCommentarySnapshot(!!box && snapshotAvailable);
   // Tabellen-Grafiken: Band unter den Feeds, Lower Third im Kommentar-Vollbild, Vollbild (nur Programm)
   const band =
-    graphics?.boardStrip && host.mode !== 'full' && !graphics.lowerThird.visible ? boardBand(layout, tickerOn) : null;
-  const lowerBoard = !!graphics?.hostBoard && host.mode === 'full' && !!box;
-  const fullBoard = kind === 'program' && !!graphics?.boardFull;
+    board && graphics?.boardStrip && host.mode !== 'full' && !graphics.lowerThird.visible
+      ? boardBand(layout, tickerOn)
+      : null;
+  const lowerBoard = !!board && !!graphics?.hostBoard && host.mode === 'full' && !!box;
+  const fullBoard = kind === 'program' && !!board && !!graphics?.boardFull;
+  const onAir = new Set(Object.values(comp.slots).filter((f): f is string => !!f));
   return (
     <div className={`monitor ${kind}`}>
       <div className="monitor-head">
@@ -136,7 +148,7 @@ export function Monitor({
         })}
         {box && commentary && (
           <div
-            className={`host-box ${host.mode}`}
+            className={`host-box ${host.mode} ${lowerBoard ? 'label-top' : ''}`}
             style={{
               left: `${box.x * 100}%`,
               top: `${box.y * 100}%`,
@@ -152,22 +164,38 @@ export function Monitor({
             </span>
           </div>
         )}
-        {band && (
-          <div
-            className="board-band"
-            style={{
-              left: `${band.x * 100}%`,
-              top: `${band.y * 100}%`,
-              width: `${band.w * 100}%`,
-              height: `${band.h * 100}%`,
-            }}
-          >
-            Tabelle
-          </div>
+        {board && (band || lowerBoard || fullBoard) && (
+          <OverlayStage>
+            {band && <BoardStrip data={board} rect={band} onAir={onAir} />}
+            {lowerBoard && <BoardLower data={board} onAir={onAir} tickerOn={tickerOn} />}
+            {fullBoard && <BoardFull data={board} eventName={eventName} onAir={onAir} />}
+          </OverlayStage>
         )}
-        {lowerBoard && <div className="board-band lower">Tabelle</div>}
-        {fullBoard && <div className="board-full">Tabelle · Vollbild</div>}
       </div>
+    </div>
+  );
+}
+
+/** Zeichnet Overlay-Grafiken in Originalgröße (1920×1080) und skaliert sie auf den Monitor. */
+function OverlayStage({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => setScale(el.clientWidth / 1920);
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div className="monitor-stage" ref={ref} aria-hidden>
+      {scale > 0 && (
+        <div className="monitor-stage-inner" style={{ transform: `scale(${scale})` }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

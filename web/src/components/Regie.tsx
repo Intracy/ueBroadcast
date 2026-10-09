@@ -37,6 +37,7 @@ export function Regie({ state, production, offset }: Props) {
   const previewLayout = production.layouts.find((l) => l.id === production.preview.layoutId);
   const programLayout = production.layouts.find((l) => l.id === production.program.layoutId);
   const hasBoard = !!formatUi(production.format).boardData;
+  const board = formatUi(production.format).boardData?.(production, now, offset) ?? null;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(previewLayout?.slots[0]?.id ?? null);
   const [liveMonitors, setLiveMonitors] = useState<{ preview: boolean; program: boolean }>(loadLiveMonitors);
   const toggleLive = (kind: 'preview' | 'program') =>
@@ -138,6 +139,8 @@ export function Regie({ state, production, offset }: Props) {
             commentary={production.commentary}
             tickerOn={production.graphics.ticker}
             graphics={hasBoard ? production.graphics : null}
+            board={board}
+            eventName={production.name}
             snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
             live={liveMonitors.preview}
             onToggleLive={() => toggleLive('preview')}
@@ -178,6 +181,8 @@ export function Regie({ state, production, offset }: Props) {
             commentary={production.commentary}
             tickerOn={production.graphics.ticker}
             graphics={hasBoard ? production.graphics : null}
+            board={board}
+            eventName={production.name}
             snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
             live={liveMonitors.program}
             onToggleLive={() => toggleLive('program')}
