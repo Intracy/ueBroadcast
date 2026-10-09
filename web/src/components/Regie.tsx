@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AppState, ProductionState } from '../../../shared/types';
 import { send, useNow } from '../api';
 import { Monitor } from './Monitor';
+import { CommentaryBar } from './Commentary';
 import { Multiview } from './Multiview';
 import { Alerts, Radar } from './Radar';
 import { ToolsPanel } from './ToolsPanel';
@@ -94,6 +95,12 @@ export function Regie({ state, production, offset }: Props) {
         if (next) setSelectedSlot(next.id);
         return;
       }
+      if (production.commentary && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'o')) {
+        const want = e.key.toLowerCase() === 'k' ? 'full' : 'pip';
+        const current = production.preview.host?.mode ?? 'off';
+        send('preview.host', { mode: current === want ? 'off' : want });
+        return;
+      }
       if (e.key.toLowerCase() === 'm') {
         send('marker', { text: 'Highlight' });
         return;
@@ -123,6 +130,9 @@ export function Regie({ state, production, offset }: Props) {
             onSelectSlot={setSelectedSlot}
             onDropFeed={assign}
             simulation={production.simulation}
+            commentary={production.commentary}
+            tickerOn={production.graphics.ticker}
+            snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
             live={liveMonitors.preview}
             onToggleLive={() => toggleLive('preview')}
           />
@@ -149,6 +159,9 @@ export function Regie({ state, production, offset }: Props) {
             now={now}
             offset={offset}
             simulation={production.simulation}
+            commentary={production.commentary}
+            tickerOn={production.graphics.ticker}
+            snapshotAvailable={state.obs.mode === 'obs' && state.obs.connected}
             live={liveMonitors.program}
             onToggleLive={() => toggleLive('program')}
           />
@@ -166,9 +179,11 @@ export function Regie({ state, production, offset }: Props) {
             </button>
           ))}
           <span className="hint muted small">
-            Slot wählen → Feed klicken (1–0) oder ziehen · Enter = Take · M = Marker
+            Slot wählen → Feed klicken (1–0) oder ziehen · Enter = Take · K/O = Kommentar · M = Marker
           </span>
         </div>
+
+        <CommentaryBar production={production} obs={state.obs} />
 
         <Multiview production={production} insights={insights} now={now} offset={offset} onPick={pick} />
       </div>

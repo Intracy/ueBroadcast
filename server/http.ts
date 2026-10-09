@@ -92,6 +92,27 @@ export function createHttpServer(app: UebApp): Server {
       if (path === '/api/state' && req.method === 'GET') return sendJson(res, 200, app.getState());
       if (path === '/api/health') return sendJson(res, 200, { ok: true });
       if (path === '/api/settings' && req.method === 'GET') return sendJson(res, 200, app.getSettings());
+      if (path === '/api/obs/scenes' && req.method === 'GET') {
+        if (!app.obs.active) return sendJson(res, 409, { error: 'OBS ist nicht verbunden' });
+        return sendJson(res, 200, { scenes: await app.obs.listScenes() });
+      }
+      if (path === '/api/obs/screenshot' && req.method === 'GET') {
+        const source = url.searchParams.get('source') || app.active?.commentary?.obsScene;
+        if (!source || !app.obs.active) {
+          res.writeHead(204, { 'Cache-Control': 'no-store' });
+          res.end();
+          return;
+        }
+        const width = Math.min(1280, Math.max(160, Number(url.searchParams.get('width')) || 480));
+        try {
+          const jpg = await app.obs.screenshot(source, width);
+          res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' });
+          res.end(jpg);
+        } catch (err) {
+          sendJson(res, 404, { error: err instanceof Error ? err.message : String(err) });
+        }
+        return;
+      }
       if (path === '/api/settings/app' && req.method === 'POST') {
         await app.saveAppSettings((await readBody(req)) as AppSettingsPatch);
         return sendJson(res, 200, app.getSettings());

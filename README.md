@@ -74,6 +74,20 @@ Weitere Funktionen:
 - **Logbuch**: Takes, Meldungen und Marker mit Uhrzeit, als CSV für VOD-Schnitt und Nachbereitung.
 - Der Zustand (Logbuch, Runs, Tabelle, Bestzeiten) wird in `data/` gespeichert und übersteht Neustarts.
 
+### Kommentar-Szene
+
+Die Kommentatoren haben in OBS eine eigene Szene, z. B. mit der Kamera über einen Cam Link. Unter **Einstellungen → Produktion → Kommentar** trägst du den Namen dieser Szene ein („Szenen aus OBS laden“ listet alle Szenen), dazu die Namen fürs Bild, die Größe des Overlays und die Standard-Ecke. Danach einmal **OBS einrichten**: ueBroadcast bettet die Szene in „ueB Programm A/B“ ein, über den Runnern und unter dem Overlay.
+
+In der Regie gibt es dafür eine eigene Leiste mit Live-Standbild aus OBS:
+
+| Modus        | Wirkung                                                                                                                              | Taste |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| **Aus**      | nur Runner                                                                                                                           | –     |
+| **Overlay**  | Kommentar-Bild in einer Ecke des Hauptbilds (im Raster „Alle“ in der Ecke der Leinwand), mit Rahmen und Namen; weicht dem Ticker aus | `O`   |
+| **Vollbild** | nur die Kommentar-Szene, Spielton stumm, Autopilot pausiert                                                                          | `K`   |
+
+Die Auswahl gilt für die Vorschau und geht mit **Take** auf Sendung, zusammen mit dem Layout. Über **Sofort** schaltest du Vollbild oder Overlay direkt aufs Programm, ohne die Runner-Belegung zu ändern. Ein Direktschnitt auf einen Runner beendet das Vollbild.
+
 ### Overlay
 
 Die Overlay-Seite ist eine transparente 1920×1080-Browserquelle:

@@ -1,4 +1,6 @@
-import type { Composition, FeedInsight, FeedState, LayoutDef } from '../../../shared/types';
+import type { CommentaryInfo, Composition, FeedInsight, FeedState, LayoutDef } from '../../../shared/types';
+import { TICKER_RESERVE, hostOf, hostRect } from '../../../shared/host';
+import { useCommentarySnapshot } from './Commentary';
 import { DeltaText, TimerText } from './bits';
 import { LiveFrame, canShowLive } from './LiveFrame';
 
@@ -17,6 +19,10 @@ interface Props {
   /** Live-Bilder in den Slots zeigen */
   live: boolean;
   onToggleLive: () => void;
+  commentary: CommentaryInfo | null;
+  tickerOn: boolean;
+  /** OBS verbunden – Standbild der Kommentar-Szene abrufbar */
+  snapshotAvailable: boolean;
 }
 
 /** Vorschau/Programm-Monitor: zeigt das Layout mit den belegten Slots, auf Wunsch mit Live-Bild. */
@@ -34,8 +40,14 @@ export function Monitor({
   simulation,
   live,
   onToggleLive,
+  commentary,
+  tickerOn,
+  snapshotAvailable,
 }: Props) {
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
+  const host = hostOf(comp);
+  const box = commentary ? hostRect(layout, host, commentary.size, tickerOn ? TICKER_RESERVE : 0) : null;
+  const snapshot = useCommentarySnapshot(!!box && snapshotAvailable);
   return (
     <div className={`monitor ${kind}`}>
       <div className="monitor-head">
@@ -58,7 +70,7 @@ export function Monitor({
         )}
       </div>
       <div className="canvas">
-        {layout && layout.slots.length === 0 && <div className="slate">Pause / Grafik</div>}
+        {layout && layout.slots.length === 0 && host.mode !== 'full' && <div className="slate">Pause / Grafik</div>}
         {layout?.slots.map((slot, i) => {
           const feedId = comp.slots[slot.id];
           const feed = feedId ? feeds.get(feedId) : undefined;
@@ -84,7 +96,7 @@ export function Monitor({
               }}
               title={onSelectSlot ? 'Slot wählen, dann Feed anklicken oder Feed hierher ziehen' : undefined}
             >
-              {live && canShowLive(feed, simulation) && (
+              {live && host.mode !== 'full' && canShowLive(feed, simulation) && (
                 <LiveFrame feed={feed!} bitrateKbps={kind === 'program' ? 2000 : 1200} />
               )}
               {i === 0 && layout.slots.length > 1 && <span className="slot-main">Haupt</span>}
@@ -102,6 +114,24 @@ export function Monitor({
             </div>
           );
         })}
+        {box && commentary && (
+          <div
+            className={`host-box ${host.mode}`}
+            style={{
+              left: `${box.x * 100}%`,
+              top: `${box.y * 100}%`,
+              width: `${box.w * 100}%`,
+              height: `${box.h * 100}%`,
+            }}
+            title={`Kommentar-Szene „${commentary.obsScene}“`}
+          >
+            {snapshot && <img src={snapshot} alt="" />}
+            <span className="host-label">
+              {commentary.label}
+              {host.mode === 'full' ? ' · Vollbild' : ''}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

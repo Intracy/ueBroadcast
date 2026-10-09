@@ -77,6 +77,7 @@ export function switchLayout(current: Composition, from: LayoutDef | undefined, 
   to.slots.forEach((slot, i) => {
     next.slots[slot.id] = ordered[i] ?? null;
   });
+  if (current.host) next.host = { ...current.host };
   return next;
 }
 
@@ -102,13 +103,16 @@ export function feedsInComposition(comp: Composition, layout: LayoutDef | undefi
 
 export function sameComposition(a: Composition, b: Composition): boolean {
   if (a.layoutId !== b.layoutId) return false;
+  const ha = a.host ?? { mode: 'off', corner: 'br' };
+  const hb = b.host ?? { mode: 'off', corner: 'br' };
+  if (ha.mode !== hb.mode || (ha.mode === 'pip' && ha.corner !== hb.corner)) return false;
   const keys = new Set([...Object.keys(a.slots), ...Object.keys(b.slots)]);
   for (const k of keys) if ((a.slots[k] ?? null) !== (b.slots[k] ?? null)) return false;
   return true;
 }
 
 /** OBS-Transform für einen Slot auf einer Leinwand der Größe width × height. */
-export function slotTransform(slot: SlotDef, width: number, height: number) {
+export function slotTransform(slot: { x: number; y: number; w: number; h: number }, width: number, height: number) {
   return {
     positionX: Math.round(slot.x * width),
     positionY: Math.round(slot.y * height),

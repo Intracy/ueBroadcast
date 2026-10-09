@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import OBSWebSocket from 'obs-websocket-js/json';
 import type { Composition, LayoutDef, ObsStatus, SlotDef } from '../../shared/types';
 import { slotTransform } from '../core/layouts';
+import type { Rect } from '../../shared/host';
 
 export const SCENE_A = 'ueB Programm A';
 export const SCENE_B = 'ueB Programm B';
@@ -18,6 +19,8 @@ export interface ObsSetupSpec {
   feeds: ObsFeedSpec[];
   overlayUrl: string;
   extraSources: string[];
+  /** Name der festen Kommentar-Szene in OBS (wird in die Programm-Szenen eingebettet) */
+  commentaryScene?: string | null;
 }
 
 type Req = { requestType: string; requestData?: Record<string, unknown> };
@@ -275,7 +278,17 @@ export class ObsController extends EventEmitter {
       await ensureInScenes(name, false);
     }
 
+    const commentary = this.spec.commentaryScene?.trim() || null;
+    if (commentary) {
+      if (!scenes.has(commentary)) {
+        notes.push(`Kommentar-Szene „${commentary}“ nicht in OBS gefunden – bitte Namen in den Einstellungen prüfen`);
+      } else {
+        await ensureInScenes(commentary, false);
+      }
+    }
+
     for (const extra of this.spec.extraSources) {
+      if (extra === commentary) continue; // wird über den Kommentar-Modus gesteuert
       if (!inputNames.has(extra) && !scenes.has(extra)) {
         notes.push(`Zusatzquelle „${extra}“ nicht in OBS gefunden`);
         continue;
@@ -297,18 +310,31 @@ export class ObsController extends EventEmitter {
     }
     await ensureInScenes(OVERLAY_INPUT, true);
 
-    // Overlay ganz nach oben
+    // Reihenfolge: Feeds unten, darüber das Kommentar-Bild, ganz oben das Overlay
     for (const scene of [SCENE_A, SCENE_B]) {
-      const { sceneItems } = await this.call<{ sceneItems: Array<{ sourceName: string; sceneItemId: number }> }>(
-        'GetSceneItemList',
-        { sceneName: scene },
-      );
+      const list = async () =>
+        (
+          await this.call<{ sceneItems: Array<{ sourceName: string; sceneItemId: number }> }>('GetSceneItemList', {
+            sceneName: scene,
+          })
+        ).sceneItems;
+      let sceneItems = await list();
+      const top = sceneItems.length - 1;
+      const commentaryItem = commentary ? sceneItems.find((i) => i.sourceName === commentary) : undefined;
+      if (commentaryItem) {
+        await this.call('SetSceneItemIndex', {
+          sceneName: scene,
+          sceneItemId: commentaryItem.sceneItemId,
+          sceneItemIndex: top,
+        });
+        sceneItems = await list();
+      }
       const overlay = sceneItems.find((i) => i.sourceName === OVERLAY_INPUT);
       if (overlay) {
         await this.call('SetSceneItemIndex', {
           sceneName: scene,
           sceneItemId: overlay.sceneItemId,
-          sceneItemIndex: sceneItems.length - 1,
+          sceneItemIndex: top,
         });
       }
     }
@@ -319,17 +345,40 @@ export class ObsController extends EventEmitter {
   }
 
   /** Belegt die nicht gesendete Szene mit der Komposition und blendet über. */
-  async applyProgram(layout: LayoutDef, comp: Composition): Promise<void> {
+  async applyProgram(layout: LayoutDef, comp: Composition, hostBox: Rect | null = null): Promise<void> {
     if (!this.active) return;
     if (!this.spec) return;
     if (!this.status.setupDone) throw new Error('OBS ist noch nicht eingerichtet („OBS einrichten“ in der Regie)');
     const target = this.status.programScene === SCENE_A ? SCENE_B : SCENE_A;
+    const fullHost = comp.host?.mode === 'full' && !!hostBox;
     const slotByFeed = new Map<string, SlotDef>();
-    for (const slot of layout.slots) {
-      const feedId = comp.slots[slot.id];
-      if (feedId) slotByFeed.set(feedId, slot);
+    if (!fullHost) {
+      for (const slot of layout.slots) {
+        const feedId = comp.slots[slot.id];
+        if (feedId) slotByFeed.set(feedId, slot);
+      }
     }
     const requests: Req[] = [];
+    const commentary = this.spec.commentaryScene?.trim();
+    const commentaryId = commentary ? this.itemIds.get(`${target}|${commentary}`) : undefined;
+    if (commentaryId !== undefined) {
+      if (hostBox) {
+        requests.push({
+          requestType: 'SetSceneItemTransform',
+          requestData: {
+            sceneName: target,
+            sceneItemId: commentaryId,
+            sceneItemTransform: slotTransform(hostBox, this.canvas.width, this.canvas.height),
+          },
+        });
+      }
+      requests.push({
+        requestType: 'SetSceneItemEnabled',
+        requestData: { sceneName: target, sceneItemId: commentaryId, sceneItemEnabled: !!hostBox },
+      });
+    } else if (hostBox) {
+      this.emit('log', 'Kommentar-Szene ist nicht in den Programm-Szenen – „OBS einrichten“ erneut ausführen');
+    }
     for (const feed of this.spec.feeds) {
       const itemId = this.itemIds.get(`${target}|${feedInputName(feed.id)}`);
       if (itemId === undefined) continue;
@@ -367,6 +416,26 @@ export class ObsController extends EventEmitter {
     } else {
       await this.call('SetCurrentProgramScene', { sceneName: target });
     }
+  }
+
+  /** Namen aller Szenen in OBS (für die Auswahl der Kommentar-Szene). */
+  async listScenes(): Promise<string[]> {
+    if (!this.active) throw new Error('OBS ist nicht verbunden');
+    const names = await this.sceneNames();
+    return [...names].filter((n) => n !== SCENE_A && n !== SCENE_B);
+  }
+
+  /** Standbild einer Quelle oder Szene als JPEG (für die Vorschau in der Regie). */
+  async screenshot(sourceName: string, width = 480): Promise<Buffer> {
+    if (!this.active) throw new Error('OBS ist nicht verbunden');
+    const res = await this.call<{ imageData: string }>('GetSourceScreenshot', {
+      sourceName,
+      imageFormat: 'jpg',
+      imageWidth: width,
+      imageCompressionQuality: 70,
+    });
+    const base64 = res.imageData.slice(res.imageData.indexOf(',') + 1);
+    return Buffer.from(base64, 'base64');
   }
 
   /** Audio-Follow: nur die angegebenen Feeds sind hörbar. */

@@ -1,4 +1,5 @@
 // Gemeinsame Typen für Server, Regie-Oberfläche und Overlays.
+import type { HostPlacement } from './host';
 
 export type FeedStatus = 'live' | 'offline' | 'unknown';
 
@@ -38,6 +39,16 @@ export interface LayoutDef {
 export interface Composition {
   layoutId: string;
   slots: Record<string, string | null>;
+  /** Kommentar-Bild: aus, Overlay über dem Hauptbild oder Vollbild */
+  host?: HostPlacement;
+}
+
+/** Feste Kommentar-Szene aus OBS (Kamera der Kommentatoren). */
+export interface CommentaryInfo {
+  obsScene: string;
+  label: string;
+  /** Größe des Overlays in Prozent der Breite des Hauptbilds */
+  size: number;
 }
 
 /** Ein laufender oder stehender Timer, der im Browser hochgerechnet wird. */
@@ -144,6 +155,7 @@ export interface ProductionState {
   log: LogEntry[];
   insights: FeedInsight[];
   formatState: unknown;
+  commentary: CommentaryInfo | null;
 }
 
 export interface AppState {

@@ -21,7 +21,7 @@ describe('Layouts', () => {
   });
 
   it('rechnet Slots in OBS-Transformationen um', () => {
-    const t = slotTransform({ id: 'x', x: 0.75, y: 1 / 3, w: 0.25, h: 1 / 3 }, 1920, 1080);
+    const t = slotTransform({ x: 0.75, y: 1 / 3, w: 0.25, h: 1 / 3 }, 1920, 1080);
     expect(t).toMatchObject({ positionX: 1440, positionY: 360, boundsWidth: 480, boundsHeight: 360 });
     expect(t.boundsType).toBe('OBS_BOUNDS_SCALE_INNER');
   });

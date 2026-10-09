@@ -142,7 +142,13 @@
     "mediamtxApi": "http://ingest.example.com:9997"
   },
   "obs": {
-    "extraSources": ["Kommentar"]
+    "extraSources": []
+  },
+  "commentary": {
+    "obsScene": "Kommentar",
+    "label": "Huebi · Wadsm · Lino",
+    "size": 30,
+    "corner": "br"
   },
   "simulation": {
     "enabled": true,

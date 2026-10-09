@@ -45,6 +45,12 @@ export interface ProductionSettings {
   twitchAutoMarkers: boolean;
   /** SM64: Wertungsmodus */
   scoring?: string;
+  /** Feste Kommentar-Szene in OBS (leer = keine) */
+  commentaryScene: string;
+  commentaryLabel: string;
+  /** Größe des Overlays in % der Breite des Hauptbilds */
+  commentarySize: number;
+  commentaryCorner: 'br' | 'bl' | 'tr' | 'tl';
   feeds: FeedSettings[];
 }
 

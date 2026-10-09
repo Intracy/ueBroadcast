@@ -269,3 +269,48 @@ body {
   color: #c7ced6;
   margin-bottom: 24px;
 }
+
+/* Kommentar-Bild */
+.ov-host-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 4px solid #ef3b3f;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.ov-host-tag {
+  position: absolute;
+  left: -4px;
+  bottom: 100%;
+  padding: 4px 12px;
+  background: #ef3b3f;
+  border-radius: 6px 6px 0 0;
+  font-size: 20px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.ov-host-full {
+  position: absolute;
+  left: 96px;
+  bottom: 150px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 30px 16px 24px;
+  border-left: 8px solid #ef3b3f;
+  background: rgba(10, 12, 16, 0.88);
+  border-radius: 6px;
+}
+
+.ov-host-kicker {
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #c7ced6;
+}
+
+.ov-host-names {
+  font-size: 42px;
+  font-weight: 800;
+}

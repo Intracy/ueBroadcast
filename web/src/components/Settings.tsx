@@ -749,7 +749,7 @@ function ProductionTab({
           />
         </label>
         <label className="field" htmlFor="prod-extra">
-          <span>Zusätzliche OBS-Quellen über den Feeds (kommagetrennt)</span>
+          <span>Dauerhafte OBS-Quellen über den Feeds (kommagetrennt)</span>
           <input
             id="prod-extra"
             value={extra}
@@ -762,9 +762,11 @@ function ProductionTab({
                   .filter(Boolean),
               });
             }}
-            placeholder="z. B. Kommentar"
+            placeholder="z. B. Logo"
           />
-          <small className="muted">Namen von Quellen oder Szenen in OBS, z. B. die Kameras des Kommentarteams.</small>
+          <small className="muted">
+            Immer sichtbar, z. B. ein Logo. Die Kommentatoren-Kamera gehört in den Abschnitt „Kommentar“.
+          </small>
         </label>
         <Toggle
           checked={draft.twitchAutoMarkers}
@@ -773,6 +775,8 @@ function ProductionTab({
           hint="Bei PBs, Event-Bestzeiten und PB-Pace (nur mit Twitch-Zugang in der .env)."
         />
       </fieldset>
+
+      <CommentaryFieldset draft={draft} update={update} />
 
       {isSm64 && (
         <fieldset>
@@ -942,5 +946,116 @@ function ObsTab({
         />
       </fieldset>
     </div>
+  );
+}
+
+// ------------------------------------------------------------------ Kommentar
+
+const CORNERS: Array<['br' | 'bl' | 'tr' | 'tl', string]> = [
+  ['br', 'unten rechts'],
+  ['bl', 'unten links'],
+  ['tr', 'oben rechts'],
+  ['tl', 'oben links'],
+];
+
+function CommentaryFieldset({
+  draft,
+  update,
+}: {
+  draft: ProductionSettings;
+  update: (p: Partial<ProductionSettings>) => void;
+}) {
+  const [scenes, setScenes] = useState<string[] | null>(null);
+  const [sceneError, setSceneError] = useState<string | null>(null);
+  const loadScenes = () => {
+    setSceneError(null);
+    apiRequest<{ scenes: string[] }>('/api/obs/scenes').then(
+      (r) => setScenes(r.scenes),
+      (err) => setSceneError(err instanceof Error ? err.message : String(err)),
+    );
+  };
+  const configured = !!draft.commentaryScene.trim();
+  return (
+    <fieldset>
+      <legend>Kommentar</legend>
+      <p className="muted small fieldset-intro">
+        Die Kommentatoren haben in OBS eine eigene Szene (z. B. mit der Cam-Link-Kamera). ueBroadcast bettet sie in das
+        Programm ein und schaltet sie als Overlay über dem Hauptbild oder im Vollbild.
+      </p>
+      <label className="field" htmlFor="prod-com-scene">
+        <span>OBS-Szene der Kommentatoren</span>
+        <div className="row tight">
+          <input
+            id="prod-com-scene"
+            list="obs-scene-list"
+            value={draft.commentaryScene}
+            onChange={(e) => update({ commentaryScene: e.target.value })}
+            placeholder="z. B. Kommentar"
+          />
+          <button type="button" className="btn small" onClick={loadScenes}>
+            Szenen aus OBS laden
+          </button>
+        </div>
+        <datalist id="obs-scene-list">
+          {(scenes ?? []).map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+        {sceneError && <small className="bad-text">{sceneError}</small>}
+        {scenes && !sceneError && (
+          <small className="muted">
+            {scenes.length
+              ? `${scenes.length} Szenen gefunden – im Feld auswählen.`
+              : 'In OBS gibt es noch keine eigenen Szenen.'}
+          </small>
+        )}
+        {!scenes && !sceneError && (
+          <small className="muted">Name genau wie in OBS. Leer lassen = kein Kommentar-Bild.</small>
+        )}
+      </label>
+      <label className="field" htmlFor="prod-com-label">
+        <span>Namen im Bild</span>
+        <input
+          id="prod-com-label"
+          value={draft.commentaryLabel}
+          disabled={!configured}
+          onChange={(e) => update({ commentaryLabel: e.target.value })}
+          placeholder="z. B. Huebi · Wadsm · Lino"
+        />
+      </label>
+      <div className="form-grid">
+        <label className="field" htmlFor="prod-com-size">
+          <span>Größe des Overlays: {draft.commentarySize} % des Hauptbilds</span>
+          <input
+            id="prod-com-size"
+            type="range"
+            min={15}
+            max={50}
+            step={1}
+            value={draft.commentarySize}
+            disabled={!configured}
+            onChange={(e) => update({ commentarySize: Number(e.target.value) })}
+          />
+        </label>
+        <label className="field" htmlFor="prod-com-corner">
+          <span>Standard-Ecke</span>
+          <select
+            id="prod-com-corner"
+            value={draft.commentaryCorner}
+            disabled={!configured}
+            onChange={(e) => update({ commentaryCorner: e.target.value as ProductionSettings['commentaryCorner'] })}
+          >
+            {CORNERS.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="muted small">
+        Nach dem Speichern einmal „OBS einrichten“ ausführen, damit die Szene eingebettet wird.
+      </p>
+    </fieldset>
   );
 }

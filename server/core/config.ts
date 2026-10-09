@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { LayoutDef } from '../../shared/types';
+import type { Corner } from '../../shared/host';
 
 export const ROOT_DIR = resolve(import.meta.dirname, '..', '..');
 export const PRODUCTIONS_DIR = join(ROOT_DIR, 'productions');
@@ -81,9 +82,11 @@ export interface ProductionConfig {
   /** Ingest-Server: `host` für automatisch erzeugte Adressen, `mediamtxApi` für Feed-Status */
   ingest?: { host?: string; mediamtxApi?: string };
   obs?: {
-    /** Vorhandene OBS-Quellen/Szenen, die über den Feeds liegen sollen (z. B. Kommentar-Kameras) */
+    /** Vorhandene OBS-Quellen/Szenen, die dauerhaft über den Feeds liegen sollen (z. B. ein Logo) */
     extraSources?: string[];
   };
+  /** Feste Kommentar-Szene in OBS, zuschaltbar als Overlay oder Vollbild */
+  commentary?: { obsScene: string; label?: string; size?: number; corner?: Corner };
   simulation?: { enabled?: boolean; speed?: number };
   autopilot?: { layoutId?: string; minHoldSec?: number };
   twitch?: { autoMarkers?: boolean };

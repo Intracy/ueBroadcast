@@ -3,6 +3,7 @@ import type { FeedInsight, ProductionState } from '../../../shared/types';
 import { formatDelta, timerValue, formatDuration } from '../../../shared/format';
 import { useNow, useStore } from '../api';
 import { formatUi } from '../formats';
+import { TICKER_RESERVE, hostOf, hostRect } from '../../../shared/host';
 
 /** Overlay als OBS-Browserquelle: 1920×1080, transparenter Hintergrund, skaliert auf die Quellgröße. */
 export function Overlay() {
@@ -42,7 +43,13 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
   const feeds = new Map(prod.feeds.map((f) => [f.id, f]));
   const g = prod.graphics;
   const Board = formatUi(prod.format).OverlayBoard;
-  const pause = !layout || layout.slots.length === 0;
+  const host = hostOf(prod.program);
+  const hostBox =
+    prod.commentary && host.mode !== 'off'
+      ? hostRect(layout, host, prod.commentary.size, g.ticker ? TICKER_RESERVE : 0)
+      : null;
+  const fullHost = host.mode === 'full' && !!hostBox;
+  const pause = !fullHost && (!layout || layout.slots.length === 0);
   const tickerItems = g.ticker ? tickerCandidates(prod) : [];
   // Namensschilder unten nicht unter den Ticker schieben
   const bottomEdge = tickerItems.length > 0 ? 1 - 72 / 1080 : 1;
@@ -62,6 +69,7 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
       )}
 
       {!pause &&
+        !fullHost &&
         g.slotLabels &&
         layout!.slots.map((slot) => {
           const feedId = prod.program.slots[slot.id];
@@ -96,6 +104,26 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
       {!pause && g.leaderboard && Board && (
         <div className="ov-board-wrap side">
           <Board production={prod} now={now} offset={offset} />
+        </div>
+      )}
+
+      {hostBox && prod.commentary && host.mode === 'pip' && (
+        <div
+          className="ov-host-frame"
+          style={{
+            left: `${hostBox.x * 100}%`,
+            top: `${hostBox.y * 100}%`,
+            width: `${hostBox.w * 100}%`,
+            height: `${hostBox.h * 100}%`,
+          }}
+        >
+          <span className="ov-host-tag">{prod.commentary.label}</span>
+        </div>
+      )}
+      {fullHost && prod.commentary && !g.lowerThird.visible && (
+        <div className="ov-host-full">
+          <span className="ov-host-kicker">Kommentar</span>
+          <span className="ov-host-names">{prod.commentary.label}</span>
         </div>
       )}
 

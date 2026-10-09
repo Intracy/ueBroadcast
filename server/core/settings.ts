@@ -105,6 +105,10 @@ export function productionSettingsView(c: ProductionConfig): ProductionSettings 
     autopilotMinHoldSec: c.autopilot?.minHoldSec ?? 40,
     twitchAutoMarkers: c.twitch?.autoMarkers ?? false,
     scoring: typeof c.formatConfig?.scoring === 'string' ? (c.formatConfig.scoring as string) : undefined,
+    commentaryScene: c.commentary?.obsScene ?? '',
+    commentaryLabel: c.commentary?.label ?? '',
+    commentarySize: c.commentary?.size ?? 30,
+    commentaryCorner: c.commentary?.corner ?? 'br',
     feeds: c.feeds.map((f) => {
       const meta = { ...(f.meta ?? {}) };
       // Früher getrennt geführter Anzeigename: im Formular ist der Name das Label
@@ -214,6 +218,22 @@ export function mergeProductionSettings(original: ProductionConfig, s: Productio
     minHoldSec: Number.isFinite(hold) ? Math.min(600, Math.max(5, Math.round(hold))) : 40,
   };
   next.twitch = { ...(original.twitch ?? {}), autoMarkers: !!s.twitchAutoMarkers };
+  const commentaryScene = trimStr(s.commentaryScene, 100);
+  if (commentaryScene) {
+    const size = Number(s.commentarySize);
+    next.commentary = {
+      ...(original.commentary ?? {}),
+      obsScene: commentaryScene,
+      label: trimStr(s.commentaryLabel, 80) || undefined,
+      size: Number.isFinite(size) ? Math.min(60, Math.max(10, Math.round(size))) : 30,
+      corner: ['br', 'bl', 'tr', 'tl'].includes(s.commentaryCorner) ? s.commentaryCorner : 'br',
+    };
+    if (!next.commentary.label) delete next.commentary.label;
+    // Die Kommentar-Szene steuert jetzt der Kommentar-Modus, nicht mehr die dauerhaften Zusatzquellen
+    next.obs.extraSources = (next.obs.extraSources ?? []).filter((x) => x !== commentaryScene);
+  } else {
+    delete next.commentary;
+  }
   if (s.scoring !== undefined) {
     if (!['bestTime', 'finishedRuns', 'totalStars'].includes(s.scoring)) throw new ActionError('Unbekannte Wertung');
     next.formatConfig = { ...(original.formatConfig ?? {}), scoring: s.scoring };

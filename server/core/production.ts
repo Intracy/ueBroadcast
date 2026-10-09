@@ -1,8 +1,11 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import type { HostPlacement, Rect } from '../../shared/host';
+import { TICKER_RESERVE, hostOf, hostRect } from '../../shared/host';
 import type {
   Alert,
+  CommentaryInfo,
   AlertLevel,
   Composition,
   FeedInsight,
@@ -103,6 +106,9 @@ export class Production extends EventEmitter {
     const defaultLayout = this.layoutById(config.defaultLayout ?? 'featured') ?? this.layouts[0];
     this.preview = emptyComposition(defaultLayout);
     defaultLayout.slots.forEach((slot, i) => (this.preview.slots[slot.id] = this.feeds[i]?.id ?? null));
+    if (config.commentary?.obsScene?.trim()) {
+      this.preview.host = { mode: 'off', corner: config.commentary.corner ?? 'br' };
+    }
     this.program = structuredClone(this.preview);
     if (config.ingest?.mediamtxApi) this.monitor = new MediaMtxMonitor(config.ingest.mediamtxApi, config.feeds);
 
@@ -128,6 +134,7 @@ export class Production extends EventEmitter {
       feeds: this.config.feeds.map((f) => ({ id: f.id, label: f.label, source: f.source })),
       overlayUrl: `${this.deps.publicUrl}/overlay.html?view=program`,
       extraSources: this.config.obs?.extraSources ?? [],
+      commentaryScene: this.commentary?.obsScene ?? null,
     });
     this.timers.push(setInterval(() => void this.pollFeeds(), 3000));
     this.timers.push(setInterval(() => this.autopilotTick(), 2000));
@@ -147,8 +154,38 @@ export class Production extends EventEmitter {
   async syncObs(): Promise<void> {
     const layout = this.layoutById(this.program.layoutId);
     if (!layout || !this.deps.obs.status.setupDone) return;
-    await this.deps.obs.applyProgram(layout, this.program).catch((e) => this.obsError(e));
+    await this.deps.obs.applyProgram(layout, this.program, this.hostBox(this.program)).catch((e) => this.obsError(e));
     await this.applyAudio();
+  }
+
+  /** Feste Kommentar-Szene aus der Konfiguration (null = nicht eingerichtet). */
+  get commentary(): CommentaryInfo | null {
+    const c = this.config.commentary;
+    if (!c?.obsScene?.trim()) return null;
+    const size = typeof c.size === 'number' ? Math.min(60, Math.max(10, c.size)) : 30;
+    return { obsScene: c.obsScene.trim(), label: c.label?.trim() || 'Kommentar', size };
+  }
+
+  /** Wo das Kommentar-Bild in einer Belegung liegt (null = nicht sichtbar). */
+  hostBox(comp: Composition): Rect | null {
+    if (!this.commentary) return null;
+    return hostRect(
+      this.layoutById(comp.layoutId),
+      hostOf(comp),
+      this.commentary.size,
+      this.graphics.ticker ? TICKER_RESERVE : 0,
+    );
+  }
+
+  /** Kommentar-Einstellung prüfen; ohne eingerichtete Szene immer „aus“. */
+  private cleanHost(host: unknown): HostPlacement | undefined {
+    if (!this.commentary || !host || typeof host !== 'object') return undefined;
+    const h = host as Partial<HostPlacement>;
+    const mode = h.mode === 'pip' || h.mode === 'full' ? h.mode : 'off';
+    const fallback = this.config.commentary?.corner ?? 'br';
+    const corner =
+      h.corner === 'bl' || h.corner === 'tl' || h.corner === 'tr' || h.corner === 'br' ? h.corner : fallback;
+    return { mode, corner };
   }
 
   // ---------------------------------------------------------------- State
@@ -182,6 +219,7 @@ export class Production extends EventEmitter {
       log: this.log.slice(-200),
       insights: this.insights(),
       formatState: this.format.getState(),
+      commentary: this.commentary,
     };
   }
 
@@ -342,12 +380,20 @@ export class Production extends EventEmitter {
       this.program = structuredClone(comp);
       this.lastTakeAt = this.now();
       this.refreshFeedFlags();
-      const names = feedsInComposition(this.program, layout)
-        .map((id) => this.feedById(id)?.label ?? id)
-        .join(', ');
-      this.addLog('take', `${reason}: ${layout.name}${names ? ` – ${names}` : ''}`);
+      const host = hostOf(this.program);
+      const names =
+        host.mode === 'full'
+          ? ''
+          : feedsInComposition(this.program, layout)
+              .map((id) => this.feedById(id)?.label ?? id)
+              .join(', ');
+      const what =
+        host.mode === 'full'
+          ? 'Kommentar im Vollbild'
+          : `${layout.name}${names ? ` – ${names}` : ''}${host.mode === 'pip' ? ' + Kommentar-Overlay' : ''}`;
+      this.addLog('take', `${reason}: ${what}`);
       try {
-        await this.deps.obs.applyProgram(layout, this.program);
+        await this.deps.obs.applyProgram(layout, this.program, this.hostBox(this.program));
       } catch (err) {
         this.obsError(err);
       }
@@ -367,12 +413,15 @@ export class Production extends EventEmitter {
   private async applyAudio(): Promise<void> {
     if (!this.audioFollow) return;
     const layout = this.layoutById(this.program.layoutId);
-    const main = feedsInComposition(this.program, layout)[0];
+    // Kommentar im Vollbild: kein Spielton
+    const main = hostOf(this.program).mode === 'full' ? undefined : feedsInComposition(this.program, layout)[0];
     await this.deps.obs.setAudible(new Set(main ? [main] : [])).catch((e) => this.obsError(e));
   }
 
   private autopilotTick(): void {
     if (!this.autopilot) return;
+    // Kommentar im Vollbild hat Vorrang – der Autopilot schneidet erst wieder, wenn die Regie zurückschaltet
+    if (hostOf(this.program).mode === 'full') return;
     const next = decideAutopilot({
       insights: this.insights(),
       liveFeedIds: new Set(this.feeds.filter((f) => this.usable(f.id)).map((f) => f.id)),
@@ -384,6 +433,7 @@ export class Production extends EventEmitter {
       minHoldMs: (this.config.autopilot?.minHoldSec ?? 40) * 1000,
     });
     if (!next) return;
+    if (this.program.host) next.host = { ...this.program.host };
     this.preview = structuredClone(next);
     void this.take(next, 'Autopilot');
   }
@@ -426,7 +476,25 @@ export class Production extends EventEmitter {
           const fid = comp.slots?.[slot.id];
           clean.slots[slot.id] = fid && this.feedById(fid) ? fid : null;
         }
+        const host = this.cleanHost(comp.host ?? this.preview.host);
+        if (host) clean.host = host;
         this.preview = clean;
+        break;
+      }
+      case 'preview.host': {
+        if (!this.commentary) throw new ActionError('Keine Kommentar-Szene eingerichtet (Einstellungen → Produktion)');
+        const current = hostOf(this.preview);
+        const host = this.cleanHost({ ...current, ...p });
+        this.preview = { ...this.preview, host: host ?? { mode: 'off', corner: current.corner } };
+        break;
+      }
+      case 'host.take': {
+        // Kommentar-Modus direkt aufs Programm, Runner-Belegung bleibt
+        if (!this.commentary) throw new ActionError('Keine Kommentar-Szene eingerichtet (Einstellungen → Produktion)');
+        const host = this.cleanHost({ ...hostOf(this.program), ...p }) ?? { mode: 'off', corner: 'br' };
+        const next = { ...structuredClone(this.program), host };
+        this.preview = { ...this.preview, host: { ...host } };
+        await this.take(next, 'Kommentar');
         break;
       }
       case 'preview.fromProgram':
@@ -441,7 +509,10 @@ export class Production extends EventEmitter {
         const layout = this.layoutById(this.program.layoutId);
         const first = layout?.slots[0]?.id;
         if (!first) throw new ActionError('Aktuelles Layout hat keine Slots');
-        await this.take(assignFeed(this.program, first, feedId), 'Direktschnitt');
+        const next = assignFeed(this.program, first, feedId);
+        // Aus dem Kommentar-Vollbild zurück auf den Runner
+        if (next.host?.mode === 'full') next.host = { ...next.host, mode: 'off' };
+        await this.take(next, 'Direktschnitt');
         break;
       }
       case 'audioFollow':
@@ -456,6 +527,14 @@ export class Production extends EventEmitter {
         break;
       case 'graphics': {
         const patch = (p.patch ?? {}) as Partial<GraphicsState>;
+        if (
+          patch.ticker !== undefined &&
+          patch.ticker !== this.graphics.ticker &&
+          hostOf(this.program).mode === 'pip'
+        ) {
+          // Kommentar-Overlay macht dem Ticker Platz bzw. rutscht wieder nach unten
+          queueMicrotask(() => void this.syncObs());
+        }
         this.graphics = {
           ...this.graphics,
           ...patch,
@@ -560,6 +639,8 @@ export class Production extends EventEmitter {
       const fid = c.slots?.[slot.id];
       clean.slots[slot.id] = fid && this.feedById(fid) ? fid : null;
     }
+    const host = this.cleanHost(c.host ?? {});
+    if (host) clean.host = host;
     return clean;
   }
 
