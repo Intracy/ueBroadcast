@@ -1,16 +1,8 @@
-import type React from 'react';
 import type { FeedInsight, FeedState, ProductionState } from '../../../shared/types';
 import { send } from '../api';
 import { formatUi } from '../formats';
 import { DeltaText, ScoreBadge, TimerText } from './bits';
 import { LiveFrame, canShowLive } from './LiveFrame';
-
-/** Spalten so wählen, dass keine Kachel allein in einer Reihe steht: 11 → 6, 16 → 8. */
-function multiviewColumns(n: number): number {
-  if (n <= 5) return Math.max(n, 1);
-  if (n <= 10) return 5;
-  return Math.min(8, Math.ceil(n / 2));
-}
 
 interface Props {
   production: ProductionState;
@@ -23,11 +15,7 @@ interface Props {
 export function Multiview({ production, insights, now, offset, onPick }: Props) {
   const ui = formatUi(production.format);
   return (
-    <section
-      className="multiview"
-      aria-label="Multiview"
-      style={{ '--mv-cols': multiviewColumns(production.feeds.length) } as React.CSSProperties}
-    >
+    <section className="multiview" aria-label="Multiview">
       {production.feeds.map((feed, i) => (
         <FeedTile
           key={feed.id}

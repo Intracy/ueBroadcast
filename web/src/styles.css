@@ -789,8 +789,12 @@ button:focus-visible {
 /* ------------------------------------------------------------------ Multiview */
 
 .multiview {
+  /* Feste Kachelgröße: neue Runner reihen sich an, volle Zeilen brechen um */
+  /* höchstens 264 px breit; auf schmaleren Regieplätzen schrumpft sie, damit 4 nebeneinander passen */
+  --tile-w: clamp(170px, calc((100% - 3 * 8px) / 4), 264px);
   display: grid;
-  grid-template-columns: repeat(var(--mv-cols, 5), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, var(--tile-w));
+  justify-content: start;
   gap: 8px;
 }
 
