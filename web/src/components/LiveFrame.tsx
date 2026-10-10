@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo } from 'react';
 import type { FeedState } from '../../../shared/types';
-import { playerUrl } from '../../../shared/streamUrl';
+import { playerUrl, youtubeId, youtubeStart } from '../../../shared/streamUrl';
+import { YouTubeLive } from './YouTubeLive';
 
 /**
  * Vorschau-Adresse für die Regie aufbereiten.
@@ -52,17 +53,8 @@ export function canShowLive(feed: FeedState | undefined, simulation: boolean): b
   return feed.sourceKind === 'browser' && feed.status !== 'offline';
 }
 
-/** YouTube-Player per postMessage anstoßen: stumm schalten und abspielen. */
-function nudgeYouTube(frame: HTMLIFrameElement | null) {
-  const win = frame?.contentWindow;
-  if (!win) return;
-  for (const func of ['mute', 'playVideo']) {
-    win.postMessage(JSON.stringify({ event: 'command', func, args: [] }), 'https://www.youtube.com');
-  }
-}
-
 /**
- * Live-Bild eines Feeds als eingebettete Seite (VDO.Ninja, YouTube, Twitch, MediaMTX-WebRTC …).
+ * Live-Bild eines Feeds als eingebettete Seite (VDO.Ninja, Twitch, MediaMTX-WebRTC …).
  * Memo: Die Regie zeichnet mehrmals pro Sekunde neu (Timer) – das Bild selbst darf davon nichts merken.
  */
 export const LiveFrame = memo(function LiveFrame({
@@ -76,125 +68,42 @@ export const LiveFrame = memo(function LiveFrame({
   bitrateKbps?: number;
   scalePct?: number;
 }) {
-  const ref = useRef<HTMLIFrameElement>(null);
-  const src = previewSrc(url, bitrateKbps, scalePct, location.hostname, location.origin);
-  const youtube = src.startsWith('https://www.youtube.com/embed/');
-
-  // Autoplay greift bei vielen kleinen YouTube-Playern nicht zuverlässig: nach dem Laden und danach
-  // regelmäßig „stumm + abspielen“ schicken, damit kein Player auf dem Startbild stehen bleibt.
-  useEffect(() => {
-    if (!youtube) return;
-    const timers = [800, 2500, 6000].map((ms) => setTimeout(() => nudgeYouTube(ref.current), ms));
-    const interval = setInterval(() => nudgeYouTube(ref.current), 15000);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearInterval(interval);
-    };
-  }, [src, youtube]);
-
   return (
     <iframe
-      ref={ref}
       className="live-frame"
-      src={src}
+      src={previewSrc(url, bitrateKbps, scalePct, location.hostname, location.origin)}
       title={`Live-Bild ${label}`}
       allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
       referrerPolicy="strict-origin-when-cross-origin"
       tabIndex={-1}
       loading="eager"
-      onLoad={youtube ? () => nudgeYouTube(ref.current) : undefined}
     />
   );
 });
 
-/** VDO.Ninja-Links sind für die Einbettung gebaut und laufen mit geringster Verzögerung direkt. */
-export function isNinjaUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
+/** YouTube-Video aus einem Link (für den Player über die offizielle IFrame-API). */
+export function youtubeVideo(url: string | null | undefined): { id: string; start: number | null } | null {
+  if (!url) return null;
   try {
-    return /(^|\.)(vdo|obs)\.ninja$/i.test(new URL(url).hostname);
+    const u = new URL(url);
+    const id = youtubeId(u);
+    return id ? { id, start: youtubeStart(u.searchParams.get('t') ?? u.searchParams.get('start')) } : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-export type LiveMode = 'embed' | 'obs' | null;
-
-/**
- * Wie die Regie das Live-Bild eines Feeds zeigt:
- * - `embed`: Link direkt einbetten (VDO.Ninja immer; andere Links, wenn OBS nicht verbunden ist)
- * - `obs`: das Bild, das OBS von der Quelle rendert – zuverlässig für YouTube, Twitch & Co., die
- *   eingebettet oft nicht oder nur auf Klick abspielen, und ohne zusätzliche Last bei den Runnern
- */
-export function liveMode(feed: FeedState | undefined, simulation: boolean, obsFrames: boolean): LiveMode {
-  if (!feed || !canShowLive(feed, simulation)) return null;
-  if (isNinjaUrl(feed.previewUrl)) return 'embed';
-  if (obsFrames && feed.sourceKind !== 'none') return 'obs';
-  return 'embed';
-}
-
-/**
- * Laufendes Vorschaubild aus OBS: holt nacheinander Einzelbilder (~4 pro Sekunde), solange die Seite
- * sichtbar ist. Der Server teilt die Bilder zwischen allen Anzeigen.
- */
-export const ObsFrame = memo(function ObsFrame({ feedId, width }: { feedId: string; width: number }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let current: string | null = null;
-    const schedule = (ms: number) => {
-      if (!stopped) timer = setTimeout(next, ms);
-    };
-    const next = async () => {
-      if (stopped) return;
-      if (document.hidden) return schedule(1000);
-      const started = performance.now();
-      try {
-        const res = await fetch(`/api/feeds/${encodeURIComponent(feedId)}/frame?w=${width}`, { cache: 'no-store' });
-        if (res.status !== 200) return schedule(2000);
-        const blob = await res.blob();
-        if (stopped) return;
-        const url = URL.createObjectURL(blob);
-        setSrc(url);
-        // Vorheriges Bild erst freigeben, wenn das neue gesetzt ist
-        if (current) {
-          const old = current;
-          setTimeout(() => URL.revokeObjectURL(old), 1000);
-        }
-        current = url;
-        schedule(Math.max(0, 250 - (performance.now() - started)));
-      } catch {
-        schedule(2000);
-      }
-    };
-    void next();
-    return () => {
-      stopped = true;
-      if (timer) clearTimeout(timer);
-      if (current) URL.revokeObjectURL(current);
-    };
-  }, [feedId, width]);
-  return src ? (
-    <img className="live-frame obs-frame" src={src} alt="" draggable={false} />
-  ) : (
-    <div className="live-frame obs-frame loading" />
-  );
-});
-
-/** Live-Bild eines Feeds im passenden Modus (eingebettet oder aus OBS). */
+/** Das eingehende Live-Bild eines Feeds – immer der echte Stream, keine Standbilder. */
 export function LiveFeed({
   feed,
-  mode,
-  width,
   bitrateKbps,
   scalePct,
 }: {
   feed: FeedState;
-  mode: Exclude<LiveMode, null>;
-  width: number;
   bitrateKbps?: number;
   scalePct?: number;
 }) {
-  if (mode === 'obs') return <ObsFrame feedId={feed.id} width={width} />;
+  const yt = youtubeVideo(feed.previewUrl);
+  if (yt) return <YouTubeLive videoId={yt.id} start={yt.start} label={feed.label} />;
   return <LiveFrame url={feed.previewUrl!} label={feed.label} bitrateKbps={bitrateKbps} scalePct={scalePct} />;
 }

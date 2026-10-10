@@ -509,18 +509,6 @@ export class ObsController extends EventEmitter {
   }
 
   /** Standbild einer Quelle oder Szene als JPEG (für die Vorschau in der Regie). */
-  async screenshot(sourceName: string, width = 480): Promise<Buffer> {
-    if (!this.active) throw new Error('OBS ist nicht verbunden');
-    const res = await this.call<{ imageData: string }>('GetSourceScreenshot', {
-      sourceName,
-      imageFormat: 'jpg',
-      imageWidth: width,
-      imageCompressionQuality: 70,
-    });
-    const base64 = res.imageData.slice(res.imageData.indexOf(',') + 1);
-    return Buffer.from(base64, 'base64');
-  }
-
   /** Audio-Follow: nur die angegebenen Feeds sind hörbar. */
   async setAudible(audibleFeedIds: Set<string>): Promise<void> {
     if (!this.active || !this.spec) return;

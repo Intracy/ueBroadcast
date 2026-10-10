@@ -8,9 +8,9 @@ import type {
   LayoutDef,
 } from '../../../shared/types';
 import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
-import { useCommentarySnapshot } from './Commentary';
+import { CamVideo, useCommentaryCam } from './CommentaryCam';
 import { DeltaText, TimerText } from './bits';
-import { LiveFeed, liveMode } from './LiveFrame';
+import { LiveFeed, canShowLive } from './LiveFrame';
 import type { BoardData } from '../formats/board';
 import { BoardFull, BoardLower, BoardStrip } from '../overlay/Boards';
 
@@ -37,10 +37,6 @@ interface Props {
   board?: BoardData | null;
   /** Name der Produktion (Kopf der Vollbild-Tabelle) */
   eventName?: string;
-  /** OBS verbunden – Standbild der Kommentar-Szene abrufbar */
-  snapshotAvailable: boolean;
-  /** OBS verbunden und eingerichtet: Vorschaubilder der Feeds aus OBS möglich */
-  obsFrames?: boolean;
 }
 
 /** Vorschau/Programm-Monitor: zeigt das Layout mit den belegten Slots, auf Wunsch mit Live-Bild. */
@@ -63,13 +59,11 @@ export function Monitor({
   graphics,
   board,
   eventName = '',
-  snapshotAvailable,
-  obsFrames = false,
 }: Props) {
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
   const host = hostOf(comp);
   const box = commentary ? hostRect(layout, host, commentary.size, tickerOn ? TICKER_RESERVE : 0) : null;
-  const snapshot = useCommentarySnapshot(!!box && snapshotAvailable);
+  const cam = useCommentaryCam(!!box);
   // Tabellen-Grafiken: Band unter den Feeds, Lower Third im Kommentar-Vollbild, Vollbild (nur Programm)
   const band =
     board && graphics?.boardStrip && host.mode !== 'full' && !graphics.lowerThird.visible
@@ -128,20 +122,13 @@ export function Monitor({
               }}
               title={onSelectSlot ? 'Slot wählen, dann Feed anklicken oder Feed hierher ziehen' : undefined}
             >
-              {live &&
-                host.mode !== 'full' &&
-                (() => {
-                  const mode = liveMode(feed, simulation, obsFrames);
-                  return mode ? (
-                    <LiveFeed
-                      feed={feed!}
-                      mode={mode}
-                      width={slot.w >= 0.5 ? 960 : 480}
-                      bitrateKbps={kind === 'program' ? 1500 : 1000}
-                      scalePct={kind === 'program' ? 66 : 50}
-                    />
-                  ) : null;
-                })()}
+              {live && host.mode !== 'full' && feed && canShowLive(feed, simulation) && (
+                <LiveFeed
+                  feed={feed}
+                  bitrateKbps={kind === 'program' ? 1500 : 1000}
+                  scalePct={kind === 'program' ? 66 : 50}
+                />
+              )}
               {i === 0 && layout.slots.length > 1 && <span className="slot-main">Haupt</span>}
               {feed ? (
                 <div className="slot-info">
@@ -168,7 +155,7 @@ export function Monitor({
             }}
             title={`Kommentar-Szene „${commentary.obsScene}“`}
           >
-            {snapshot && <img src={snapshot} alt="" />}
+            {cam.stream && <CamVideo stream={cam.stream} label={commentary.label} />}
             <span className="host-label">
               {commentary.label}
               {host.mode === 'full' ? ' · Vollbild' : ''}

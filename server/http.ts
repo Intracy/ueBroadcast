@@ -7,9 +7,7 @@ import type { AppSettingsPatch, ProductionSettings } from '../shared/settings';
 import { WEB_DIST_DIR } from './core/config';
 import type { UebApp } from './core/app';
 import { ActionError } from './formats/types';
-import { FrameCache } from './core/frameCache';
 import { embedPage } from './embedPage';
-import { feedInputName } from './obs/obsController';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -80,7 +78,6 @@ const csvCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
  *  WS   /ws                            Live-Zustand + Aktionen
  */
 export function createHttpServer(app: UebApp): Server {
-  const frames = new FrameCache((source, width) => app.obs.screenshot(source, width));
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const path = url.pathname;
@@ -110,44 +107,6 @@ export function createHttpServer(app: UebApp): Server {
         if (!html) return sendJson(res, 400, { error: 'Kein YouTube- oder Twitch-Link' });
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
         res.end(html);
-        return;
-      }
-      // Vorschaubild eines Runner-Feeds, wie OBS ihn gerade rendert (für Links, die sich nicht einbetten lassen)
-      const frameMatch = /^\/api\/feeds\/([^/]+)\/frame$/.exec(path);
-      if (frameMatch && req.method === 'GET') {
-        const feedId = decodeURIComponent(frameMatch[1]);
-        const known = app.active?.getState().feeds.some((f) => f.id === feedId && f.sourceKind !== 'none');
-        if (!known || !app.obs.active) {
-          res.writeHead(204, { 'Cache-Control': 'no-store' });
-          res.end();
-          return;
-        }
-        const width = FrameCache.bucket(Number(url.searchParams.get('w')) || 480);
-        const jpg = await frames.get(feedInputName(feedId), width);
-        if (!jpg) {
-          res.writeHead(204, { 'Cache-Control': 'no-store' });
-          res.end();
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' });
-        res.end(jpg);
-        return;
-      }
-      if (path === '/api/obs/screenshot' && req.method === 'GET') {
-        const source = url.searchParams.get('source') || app.active?.commentary?.obsScene;
-        if (!source || !app.obs.active) {
-          res.writeHead(204, { 'Cache-Control': 'no-store' });
-          res.end();
-          return;
-        }
-        const width = Math.min(1280, Math.max(160, Number(url.searchParams.get('width')) || 480));
-        try {
-          const jpg = await app.obs.screenshot(source, width);
-          res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' });
-          res.end(jpg);
-        } catch (err) {
-          sendJson(res, 404, { error: err instanceof Error ? err.message : String(err) });
-        }
         return;
       }
       if (path === '/api/settings/app' && req.method === 'POST') {

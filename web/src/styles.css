@@ -2243,21 +2243,49 @@ input[type='range'] {
   align-items: flex-start;
 }
 
-/* Vorschaubild aus OBS */
-img.live-frame.obs-frame {
-  object-fit: contain;
-  user-select: none;
+/* YouTube-Live-Bild (IFrame-API) und Kamera */
+.yt-live {
+  overflow: hidden;
 }
 
-.live-frame.obs-frame.loading {
-  background:
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent) 0 0 / 200% 100%,
-    #060708;
-  animation: obs-frame-wait 1.4s linear infinite;
+.yt-live .yt-host,
+.yt-live iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
-@keyframes obs-frame-wait {
-  to {
-    background-position: -200% 0;
-  }
+.live-note {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 90%;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffb4b6;
+  font-size: 11px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.live-note.subtle {
+  color: var(--muted, #9aa4b0);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.cam-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.cam-select {
+  max-width: 260px;
 }
