@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { FeedState } from '../../../shared/types';
-import { playerUrl, youtubeId, youtubeStart } from '../../../shared/streamUrl';
+import { playerUrl, youtubeId, youtubeStartOf } from '../../../shared/streamUrl';
 import { YouTubeLive } from './YouTubeLive';
 
 /**
@@ -87,7 +87,7 @@ export function youtubeVideo(url: string | null | undefined): { id: string; star
   try {
     const u = new URL(url);
     const id = youtubeId(u);
-    return id ? { id, start: youtubeStart(u.searchParams.get('t') ?? u.searchParams.get('start')) } : null;
+    return id ? { id, start: youtubeStartOf(u) } : null;
   } catch {
     return null;
   }

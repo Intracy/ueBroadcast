@@ -19,8 +19,8 @@ describe('Player-Adressen für OBS', () => {
   it('baut eine Player-Seite mit eingebettetem Player und Twitch-parent des Servers', () => {
     const html = embedPage('https://twitch.tv/huebi', 'localhost:4400', false)!;
     expect(html).toContain('src="https://player.twitch.tv/?channel=huebi&amp;parent=localhost&amp;muted=false');
-    expect(embedPage('https://www.youtube.com/watch?v=abcdefgh', 'localhost:4400', false)).toContain(
-      'https://www.youtube.com/embed/abcdefgh?autoplay=1&amp;mute=0',
+    expect(embedPage('https://www.youtube.com/watch?v=abcdefghijk', 'localhost:4400', false)).toContain(
+      'https://www.youtube.com/embed/abcdefghijk?autoplay=1&amp;mute=0',
     );
     expect(embedPage('https://example.com/stream', 'localhost:4400', false)).toBeNull();
     // Kein HTML aus der Adresse ins Dokument

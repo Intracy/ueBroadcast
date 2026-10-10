@@ -11,14 +11,30 @@ export function youtubeStart(t: string | null): number | null {
   return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
 }
 
-/** Video-ID aus allen üblichen YouTube-Links (watch, youtu.be, live, shorts, embed). */
+/**
+ * Video-ID aus allen üblichen YouTube-Links (watch, youtu.be, live, shorts, embed).
+ * Tolerant gegenüber Tippfehlern wie „watch?v=ID?start=60“ – YouTube-IDs sind immer 11 Zeichen lang.
+ */
 export function youtubeId(u: URL): string | null {
   const host = u.hostname.replace(/^(www|m|music)\./, '');
-  if (host === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
-  if (host !== 'youtube.com' && host !== 'youtube-nocookie.com') return null;
-  if (u.pathname === '/watch') return u.searchParams.get('v');
-  const m = /^\/(?:live|shorts|embed)\/([\w-]{6,})/.exec(u.pathname);
-  return m ? m[1] : null;
+  let raw: string | null = null;
+  if (host === 'youtu.be') raw = u.pathname.slice(1).split('/')[0] || null;
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    if (u.pathname === '/watch') raw = u.searchParams.get('v');
+    else raw = /^\/(?:live|shorts|embed|v)\/([^/?#]+)/.exec(u.pathname)?.[1] ?? null;
+  }
+  return raw ? (/^[\w-]{11}/.exec(raw)?.[0] ?? null) : null;
+}
+
+/** Startzeit eines YouTube-Links („t=90“, „start=648“, auch versehentlich als „v=ID?start=648“). */
+export function youtubeStartOf(u: URL): number | null {
+  const direct = youtubeStart(u.searchParams.get('t') ?? u.searchParams.get('start'));
+  if (direct) return direct;
+  const v = u.searchParams.get('v') ?? '';
+  const q = v.indexOf('?');
+  if (q < 0) return null;
+  const inner = new URLSearchParams(v.slice(q + 1));
+  return youtubeStart(inner.get('t') ?? inner.get('start'));
 }
 
 /** Kanal oder Video aus Twitch-Links. */
@@ -71,7 +87,7 @@ export function playerUrl(url: string, opts: PlayerOptions): string | null {
     ];
     for (const [k, v] of params) embed.searchParams.set(k, v);
     if (opts.origin) embed.searchParams.set('origin', opts.origin);
-    const start = youtubeStart(u.searchParams.get('t') ?? u.searchParams.get('start'));
+    const start = youtubeStartOf(u);
     if (start) embed.searchParams.set('start', String(start));
     return embed.toString();
   }

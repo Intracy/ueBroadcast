@@ -147,7 +147,8 @@ export const YouTubeLive = memo(function YouTubeLive({
             onStateChange: (e) => {
               if (e.data === 1 || e.data === 3) setWaiting(false);
               if (e.data === ENDED) {
-                e.target.seekTo(start ?? 0, true);
+                // Endlosschleife von vorn (eine Startzeit hinter dem Videoende würde sonst sofort wieder enden)
+                e.target.seekTo(0, true);
                 kick(e.target);
               }
             },

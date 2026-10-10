@@ -8,8 +8,13 @@ describe('Live-Bild von YouTube', () => {
       start: null,
     });
     expect(youtubeVideo('https://youtu.be/tBhamFUoyJk?t=90')).toEqual({ id: 'tBhamFUoyJk', start: 90 });
-    expect(youtubeVideo('https://www.youtube.com/live/abcdefgh')).toEqual({ id: 'abcdefgh', start: null });
+    expect(youtubeVideo('https://www.youtube.com/live/abcdefghijk')).toEqual({ id: 'abcdefghijk', start: null });
     expect(youtubeVideo('https://vdo.ninja/?view=x')).toBeNull();
     expect(youtubeVideo(null)).toBeNull();
+    // Häufiger Tippfehler: zweites „?“ statt „&“
+    expect(youtubeVideo('https://www.youtube.com/watch?v=tBhamFUoyJk?start=648&fs=1')).toEqual({
+      id: 'tBhamFUoyJk',
+      start: 648,
+    });
   });
 });
