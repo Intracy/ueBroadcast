@@ -10,8 +10,11 @@ import { formatDelta, formatDuration } from '../../../shared/format';
 import type { FormatContext } from '../types';
 import { ActionError } from '../types';
 import { liveMs } from './radar';
+import { progressLabel, runProgress } from '../../../shared/sm64Categories';
 
 export interface EngineOptions {
+  /** Kategorie-Kennung (z. B. „70“) – gespeicherte Runs anderer Kategorien werden nicht übernommen */
+  category?: string;
   goalStars: number;
   splits: Sm64Split[];
   scoring: Sm64Scoring;
@@ -35,6 +38,7 @@ const localDay = (ts: number) => {
 export class Sm64Engine {
   readonly splits: Sm64Split[];
   readonly goalStars: number;
+  readonly category: string;
   scoring: Sm64Scoring;
   runners: Sm64Runner[];
   eventBest: Sm64State['eventBest'] = null;
@@ -47,6 +51,7 @@ export class Sm64Engine {
   ) {
     this.splits = opts.splits;
     this.goalStars = opts.goalStars;
+    this.category = opts.category ?? '70';
     this.scoring = opts.scoring;
     const now = ctx.now();
     this.day = localDay(now);
@@ -176,18 +181,22 @@ export class Sm64Engine {
     }
     const flags = this.flags.get(r.feedId) ?? { endphase: false, pbPace: false };
     this.flags.set(r.feedId, flags);
-    const remaining = this.goalStars - r.stars;
-    if (r.stars >= 60 && !flags.endphase && r.splitIndex < this.splits.length) {
+    const n = this.splits.length;
+    const progress = runProgress(r.stars, r.splitIndex, this.goalStars, n);
+    const label = progressLabel(r.stars, r.splitIndex, this.goalStars, n);
+    const remaining =
+      this.goalStars >= 16 ? `noch ${this.goalStars - r.stars} Sterne` : `noch ${n - r.splitIndex} Splits`;
+    if (progress >= 0.85 && !flags.endphase && r.splitIndex < n) {
       flags.endphase = true;
-      this.ctx.alert('highlight', `${r.name} in der Endphase – ${r.stars}/${this.goalStars} Sterne`, {
+      this.ctx.alert('highlight', `${r.name} in der Endphase – ${label}`, {
         feedId: r.feedId,
         key: `endphase-${r.feedId}`,
         cooldownMs: 10 * 60_000,
       });
     }
-    if (r.deltaMs !== null && r.deltaMs < 0 && r.stars >= 35 && !flags.pbPace && r.splitIndex < this.splits.length) {
+    if (r.deltaMs !== null && r.deltaMs < 0 && progress >= 0.5 && !flags.pbPace && r.splitIndex < n) {
       flags.pbPace = true;
-      this.ctx.alert('highlight', `${r.name} auf PB-Pace (${formatDelta(r.deltaMs)}), noch ${remaining} Sterne`, {
+      this.ctx.alert('highlight', `${r.name} auf PB-Pace (${formatDelta(r.deltaMs)}), ${remaining}`, {
         feedId: r.feedId,
         key: `pbpace-${r.feedId}`,
         cooldownMs: 10 * 60_000,
@@ -312,7 +321,9 @@ export class Sm64Engine {
         this.scoring === 'bestTime'
           ? r.bestEventMs !== null
             ? formatDuration(r.bestEventMs, true)
-            : `${col(r)} ★`
+            : this.goalStars >= 16
+              ? `${col(r)} ★`
+              : '–'
           : this.scoring === 'finishedRuns'
             ? `${r.finishedRuns} Runs`
             : `${col(r)} ★`,
@@ -323,7 +334,13 @@ export class Sm64Engine {
   }
 
   serialize(): unknown {
-    return { runners: this.runners, eventBest: this.eventBest, day: this.day, scoring: this.scoring };
+    return {
+      category: this.category,
+      runners: this.runners,
+      eventBest: this.eventBest,
+      day: this.day,
+      scoring: this.scoring,
+    };
   }
 
   restore(data: unknown): void {
@@ -332,7 +349,13 @@ export class Sm64Engine {
       eventBest?: Sm64State['eventBest'];
       day?: string;
       scoring?: Sm64Scoring;
+      category?: string;
     };
+    // Andere Kategorie (Zeiten, PBs und Sterne passen nicht): mit leerer Tabelle starten
+    if ((d?.category ?? '70') !== this.category) {
+      if (d?.scoring) this.scoring = d.scoring;
+      return;
+    }
     if (Array.isArray(d?.runners)) {
       for (const saved of d.runners) {
         const r = this.runners.find((x) => x.feedId === saved.feedId);

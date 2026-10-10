@@ -6,6 +6,7 @@ import { DeltaText } from '../../components/bits';
 import type { FormatPanelProps } from '..';
 import type { ProductionState } from '../../../../shared/types';
 import type { BoardColumn, BoardData, BoardRow } from '../board';
+import { progressLabel } from '../../../../shared/sm64Categories';
 
 const SCORING_LABEL: Record<Sm64Scoring, string> = {
   bestTime: 'Beste Zeit',
@@ -39,6 +40,11 @@ export function Sm64Panel({ production, now, offset }: FormatPanelProps) {
   return (
     <div className="sm64">
       <div className="sm64-head">
+        {s.category && (
+          <span className="pill" title="Kategorie – in den Einstellungen änderbar">
+            {s.category.label}
+          </span>
+        )}
         <label className="field inline">
           <span>Wertung</span>
           <select value={s.scoring} onChange={(e) => send('format.scoring', { mode: e.target.value })}>
@@ -95,7 +101,14 @@ export function Sm64Panel({ production, now, offset }: FormatPanelProps) {
           </thead>
           <tbody>
             {s.runners.map((r) => (
-              <RunnerRow key={r.feedId} r={r} goal={s.goalStars} now={now} offset={offset} />
+              <RunnerRow
+                key={r.feedId}
+                r={r}
+                goal={s.goalStars}
+                splitCount={s.splits.length}
+                now={now}
+                offset={offset}
+              />
             ))}
           </tbody>
         </table>
@@ -108,7 +121,19 @@ export function Sm64Panel({ production, now, offset }: FormatPanelProps) {
   );
 }
 
-function RunnerRow({ r, goal, now, offset }: { r: Sm64Runner; goal: number; now: number; offset: number }) {
+function RunnerRow({
+  r,
+  goal,
+  splitCount,
+  now,
+  offset,
+}: {
+  r: Sm64Runner;
+  goal: number;
+  splitCount: number;
+  now: number;
+  offset: number;
+}) {
   const [editPb, setEditPb] = useState<string | null>(null);
   const active = r.phase === 'running' || r.phase === 'paused';
   const act = (a: string) => send(`format.run.${a}`, { feedId: r.feedId });
@@ -125,9 +150,7 @@ function RunnerRow({ r, goal, now, offset }: { r: Sm64Runner; goal: number; now:
       </td>
       <td>{PHASE_LABEL[r.phase]}</td>
       <td className="split">{active ? r.splitName : '–'}</td>
-      <td className="num">
-        {r.stars}/{goal}
-      </td>
+      <td className="num">{progressLabel(r.stars, r.splitIndex, goal, splitCount).replace(' ★', '')}</td>
       <td className="num">{formatDuration(time)}</td>
       <td className="num">
         <DeltaText ms={r.deltaMs} />
@@ -221,7 +244,7 @@ export function sm64BoardData(production: ProductionState, now: number, offset: 
   const columns: BoardColumn[] = [
     { key: 'status', label: 'Status' },
     { key: 'split', label: 'Aktueller Split' },
-    { key: 'stars', label: 'Sterne', numeric: true },
+    { key: 'stars', label: s.goalStars >= 16 ? 'Sterne' : 'Fortschritt', numeric: true },
     { key: 'time', label: 'Zeit', numeric: true },
     { key: 'delta', label: 'Δ PB', numeric: true },
     { key: 'pb', label: 'PB', numeric: true },
@@ -239,7 +262,7 @@ export function sm64BoardData(production: ProductionState, now: number, offset: 
     const detail = !r
       ? ''
       : active
-        ? `${r.stars}/${s.goalStars} ★ · ${formatDuration(time)}`
+        ? `${progressLabel(r.stars, r.splitIndex, s.goalStars, s.splits.length)} · ${formatDuration(time)}`
         : r.phase === 'finished'
           ? `Ziel ${formatDuration(r.lastFinishMs, true)}`
           : PHASE_LABEL[r.phase];
@@ -253,7 +276,10 @@ export function sm64BoardData(production: ProductionState, now: number, offset: 
       cells: {
         status: { text: r ? PHASE_LABEL[r.phase] : '–', tone: active ? 'good' : 'muted' },
         split: { text: active && r?.splitName ? r.splitName : '–', tone: active ? undefined : 'muted' },
-        stars: { text: r ? `${r.stars}/${s.goalStars}` : '–', tone: 'accent' },
+        stars: {
+          text: r ? progressLabel(r.stars, r.splitIndex, s.goalStars, s.splits.length).replace(' ★', '') : '–',
+          tone: 'accent',
+        },
         time: { text: formatDuration(time) },
         delta: {
           text: active && r?.deltaMs != null ? formatDelta(r.deltaMs) : '–',
@@ -270,6 +296,7 @@ export function sm64BoardData(production: ProductionState, now: number, offset: 
 
   return {
     title: 'Tabelle',
+    badge: s.category?.label,
     valueLabel: SCORING_LABEL[s.scoring],
     columns,
     rows,

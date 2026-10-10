@@ -132,7 +132,7 @@ describe('Highlight-Radar', () => {
       ['r1', feed('r1', { onProgram: true })],
       ['r2', feed('r2', { onProgram: true })],
     ]);
-    const ctx = { now, goalStars: 70, runners: engine.runners, feeds };
+    const ctx = { now, goalStars: 70, splitCount: 17, runners: engine.runners, feeds };
     const hot = scoreRunner(engine.runner('r1'), ctx);
     const cold = scoreRunner(engine.runner('r2'), ctx);
     expect(hot.score).toBeGreaterThan(cold.score + 40);
@@ -148,10 +148,18 @@ describe('Highlight-Radar', () => {
       ['r1', feed('r1', { onProgram: true })],
       ['r2', feed('r2', { onProgram: true })],
     ]);
-    const duel = scoreRunner(engine.runner('r1'), { now, goalStars: 70, runners: engine.runners, feeds });
+    const duel = scoreRunner(engine.runner('r1'), {
+      now,
+      goalStars: 70,
+      splitCount: 17,
+      runners: engine.runners,
+      feeds,
+    });
     expect(duel.partnerFeedId).toBe('r2');
     feeds.set('r1', feed('r1', { status: 'offline' }));
-    expect(scoreRunner(engine.runner('r1'), { now, goalStars: 70, runners: engine.runners, feeds }).score).toBe(0);
+    expect(
+      scoreRunner(engine.runner('r1'), { now, goalStars: 70, splitCount: 17, runners: engine.runners, feeds }).score,
+    ).toBe(0);
   });
 
   it('gibt Runnern, die lange nicht im Bild waren, einen Bonus', () => {
@@ -160,6 +168,7 @@ describe('Highlight-Radar', () => {
     const ctx = (lastProgramAt: number) => ({
       now,
       goalStars: 70,
+      splitCount: 17,
       runners: [engine.runner('r1')],
       feeds: new Map([['r1', feed('r1', { lastProgramAt })]]),
     });

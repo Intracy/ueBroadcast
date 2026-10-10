@@ -53,7 +53,7 @@ export class Sm64Simulator {
         continue;
       }
       this.beginRun(r);
-      r.idx = Math.floor(this.rnd() * (n - 3));
+      r.idx = Math.floor(this.rnd() * Math.max(1, n - 3));
       r.ms = r.idx > 0 ? r.targets[r.idx - 1] + this.rnd() * 30_000 : this.rnd() * 60_000;
       this.emitRunning(r);
     }

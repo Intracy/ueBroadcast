@@ -45,6 +45,8 @@ export interface ProductionSettings {
   twitchAutoMarkers: boolean;
   /** SM64: Wertungsmodus */
   scoring?: string;
+  /** SM64: Speedrun-Kategorie ('0' | '1' | '16' | '70' | '120') */
+  category?: string;
   /** Feste Kommentar-Szene in OBS (leer = keine) */
   commentaryScene: string;
   commentaryLabel: string;

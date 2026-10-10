@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DEFAULT_CATEGORY, SM64_CATEGORIES } from '../../../shared/sm64Categories';
 import type { AppState } from '../../../shared/types';
 import type {
   AppSettingsPatch,
@@ -657,6 +658,28 @@ function ProductionTab({
             onChange={(e) => update({ description: e.target.value })}
           />
         </label>
+        {isSm64 && (
+          <label className="field" htmlFor="prod-category">
+            <span>Speedrun-Kategorie</span>
+            <select
+              id="prod-category"
+              value={draft.category ?? DEFAULT_CATEGORY}
+              onChange={(e) => update({ category: e.target.value })}
+            >
+              {SM64_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                  {c.goalStars === 0 ? ' – ohne Sterne' : c.goalStars === 1 ? ' – 1 Stern' : ` – ${c.goalStars} Sterne`}
+                  , {c.splits.length} Splits
+                </option>
+              ))}
+            </select>
+            <small className="muted">
+              Legt Ziel-Sterne und Splits (Vorlage in typischer Routen-Reihenfolge) fest. PBs werden je Kategorie
+              gemerkt; beim Wechsel startet die Tabelle neu.
+            </small>
+          </label>
+        )}
         {isSm64 && (
           <label className="field" htmlFor="prod-scoring">
             <span>Wertung für Tabelle und Leaderboard</span>

@@ -33,6 +33,8 @@ export interface BoardData {
   title: string;
   /** Wonach sortiert ist, z. B. „Beste Zeit“ */
   valueLabel: string;
+  /** Zusatz wie die Kategorie („70 Star“) */
+  badge?: string;
   columns: BoardColumn[];
   rows: BoardRow[];
   footer?: string;

@@ -61,7 +61,7 @@ describe('Einstellungen: Produktion', () => {
       source: { kind: 'browser', url: 'https://vdo.ninja/?view=neu' },
       meta: { twitch: 'neu_tv', pbMs: 3_100_000 },
     });
-    expect(next.formatConfig).toEqual({ scoring: 'totalStars', splits: [{ name: 'A', stars: 70 }] });
+    expect(next.formatConfig).toEqual({ scoring: 'totalStars', category: '70', splits: [{ name: 'A', stars: 70 }] });
   });
 
   it('lehnt unvollständige oder doppelte Einträge mit verständlicher Meldung ab', () => {

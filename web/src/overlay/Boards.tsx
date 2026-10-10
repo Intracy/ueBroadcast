@@ -22,7 +22,7 @@ function BoardLabel({ data }: { data: BoardData }) {
   return (
     <div className="ovb-label">
       <strong>{data.title}</strong>
-      <small>{data.valueLabel}</small>
+      <small>{data.badge ? `${data.badge} · ${data.valueLabel}` : data.valueLabel}</small>
     </div>
   );
 }
@@ -88,7 +88,9 @@ export function BoardFull({ data, eventName, onAir }: { data: BoardData; eventNa
           <span className="ovb-kicker">{eventName}</span>
           <h1>{data.title}</h1>
         </div>
-        <span className="ovb-scoring">Wertung: {data.valueLabel}</span>
+        <span className="ovb-scoring">
+          {data.badge ? `${data.badge} · ` : ''}Wertung: {data.valueLabel}
+        </span>
       </header>
       <table className="ovb-table">
         <thead>

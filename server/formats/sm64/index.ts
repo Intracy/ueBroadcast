@@ -5,6 +5,7 @@ import { Sm64Engine } from './engine';
 import { scoreRunner } from './radar';
 import { Sm64Simulator } from './simulator';
 import { validateSplits } from './splits';
+import { categoryOf, sm64Category } from '../../../shared/sm64Categories';
 
 const SCORINGS: Sm64Scoring[] = ['bestTime', 'finishedRuns', 'totalStars'];
 const PHASES = new Set(['NotRunning', 'Running', 'Paused', 'Ended']);
@@ -24,39 +25,46 @@ function parseSnapshot(data: unknown): RunSnapshot {
   };
 }
 
-/** Pseudo-zufällige, aber pro Runner stabile Demo-PB zwischen 47 und 72 Minuten. */
-function demoPb(index: number): number {
+/** Pseudo-zufällige, aber pro Runner stabile Demo-PB in der typischen Spanne der Kategorie. */
+function demoPb(index: number, [min, max]: [number, number] = [47, 72]): number {
   const x = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
-  return Math.round((47 + (x - Math.floor(x)) * 25) * 60_000);
+  return Math.round((min + (x - Math.floor(x)) * (max - min)) * 60_000);
 }
 
 export const sm64Format: FormatDefinition = {
   id: 'sm64-marathon',
   name: 'SM64 Speedrun-Marathon',
   description:
-    'Mehrere Remote-Runner spielen Super Mario 64 (70 Stars) parallel. Highlight-Radar, Sterne-Zähler, PB-Pace, Leaderboard.',
+    'Mehrere Remote-Runner spielen Super Mario 64 parallel (0, 1, 16, 70 oder 120 Star). Highlight-Radar, Sterne-Zähler, PB-Pace, Leaderboard.',
 
   create(config, ctx): FormatInstance {
     const fc = config.formatConfig ?? {};
-    const splits = validateSplits(fc.splits);
-    const goalStars = typeof fc.goalStars === 'number' ? fc.goalStars : splits[splits.length - 1].stars;
+    const category = sm64Category(categoryOf(fc));
+    // Eigene Splits aus der Konfiguration haben Vorrang vor der Vorlage der Kategorie
+    const custom = Array.isArray(fc.splits) && fc.splits.length > 0;
+    const splits = validateSplits(fc.splits, category.splits);
+    const goalStars = custom
+      ? typeof fc.goalStars === 'number'
+        ? fc.goalStars
+        : splits[splits.length - 1].stars
+      : category.goalStars;
     const scoring = SCORINGS.includes(fc.scoring as Sm64Scoring) ? (fc.scoring as Sm64Scoring) : 'bestTime';
     const runners = config.feeds.map((f, i) => {
       const pb = f.meta?.pbMs;
       return {
         feedId: f.id,
         name: typeof f.meta?.runner === 'string' ? (f.meta.runner as string) : f.label,
-        pbMs: typeof pb === 'number' ? pb : ctx.simulation ? demoPb(i) : null,
+        pbMs: typeof pb === 'number' ? pb : ctx.simulation ? demoPb(i, category.demoPbMin) : null,
       };
     });
-    const engine = new Sm64Engine({ goalStars, splits, scoring, runners }, ctx);
+    const engine = new Sm64Engine({ category: category.id, goalStars, splits, scoring, runners }, ctx);
 
     let simulator: Sm64Simulator | null = null;
     if (ctx.simulation) {
       simulator = new Sm64Simulator({
         splits,
         speed: ctx.simulationSpeed,
-        runners: runners.map((r, i) => ({ feedId: r.feedId, pbMs: r.pbMs ?? demoPb(i) })),
+        runners: runners.map((r, i) => ({ feedId: r.feedId, pbMs: r.pbMs ?? demoPb(i, category.demoPbMin) })),
         emit: (feedId, snap) => {
           if (engine.applySnapshot(feedId, snap, 'simulation')) ctx.changed();
         },
@@ -76,6 +84,7 @@ export const sm64Format: FormatDefinition = {
       getState(): Sm64State {
         return {
           scoring: engine.scoring,
+          category: { id: category.id, label: category.label },
           goalStars,
           splits,
           runners: engine.runners,
@@ -88,7 +97,9 @@ export const sm64Format: FormatDefinition = {
       getInsights(): FeedInsight[] {
         const now = ctx.now();
         const feeds = new Map(ctx.feeds().map((f) => [f.id, f]));
-        return engine.runners.map((r) => scoreRunner(r, { now, goalStars, runners: engine.runners, feeds }));
+        return engine.runners.map((r) =>
+          scoreRunner(r, { now, goalStars, splitCount: splits.length, runners: engine.runners, feeds }),
+        );
       },
       handleAction(action, payload) {
         const p = (payload ?? {}) as Record<string, unknown>;

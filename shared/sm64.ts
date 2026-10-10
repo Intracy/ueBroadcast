@@ -54,6 +54,8 @@ export interface Sm64LeaderboardRow {
 
 export interface Sm64State {
   scoring: Sm64Scoring;
+  /** Speedrun-Kategorie, z. B. { id: '70', label: '70 Star' } */
+  category: { id: string; label: string };
   goalStars: number;
   splits: Sm64Split[];
   runners: Sm64Runner[];

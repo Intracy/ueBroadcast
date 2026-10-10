@@ -1,10 +1,13 @@
 import type { FeedInsight, FeedState } from '../../../shared/types';
 import type { Sm64Runner } from '../../../shared/sm64';
 import { formatDelta } from '../../../shared/format';
+import { progressLabel, runProgress } from '../../../shared/sm64Categories';
 
 export interface RadarContext {
   now: number;
   goalStars: number;
+  /** Anzahl der Splits der Kategorie */
+  splitCount: number;
   runners: Sm64Runner[];
   feeds: Map<string, FeedState>;
 }
@@ -37,7 +40,7 @@ export function scoreRunner(r: Sm64Runner, ctx: RadarContext): FeedInsight {
     score: 0,
     reasons,
     status: STATUS[r.phase],
-    stats: `${r.stars}/${ctx.goalStars} ★`,
+    stats: progressLabel(r.stars, r.splitIndex, ctx.goalStars, ctx.splitCount),
     deltaMs: r.deltaMs,
     timer:
       r.phase === 'idle' || r.phase === 'reset'
@@ -60,12 +63,13 @@ export function scoreRunner(r: Sm64Runner, ctx: RadarContext): FeedInsight {
   if (r.phase !== 'running') return base;
 
   let score = 10;
-  const progress = Math.min(1, r.stars / ctx.goalStars);
+  const progress = runProgress(r.stars, r.splitIndex, ctx.goalStars, ctx.splitCount);
   score += progress * 20;
 
-  if (r.stars >= 60) {
-    score += 25 + (r.stars - 60) * 2;
-    reasons.push(`Endphase (${r.stars}/${ctx.goalStars})`);
+  // Endphase ab 85 % (bei 70 Star ab 60 Sternen), je näher am Ziel, desto spannender
+  if (progress >= 0.85) {
+    score += 25 + Math.round((progress - 0.85) * 140);
+    reasons.push(`Endphase (${progressLabel(r.stars, r.splitIndex, ctx.goalStars, ctx.splitCount)})`);
   }
 
   if (r.deltaMs !== null) {
@@ -84,7 +88,8 @@ export function scoreRunner(r: Sm64Runner, ctx: RadarContext): FeedInsight {
   for (const o of ctx.runners) {
     if (o.feedId === r.feedId || o.phase !== 'running') continue;
     if (ctx.feeds.get(o.feedId)?.status === 'offline') continue;
-    if (Math.abs(o.stars - r.stars) > 1) continue;
+    // Gleich weit: bei Stern-Kategorien höchstens 1 Stern, sonst derselbe Split
+    if (ctx.goalStars >= 16 ? Math.abs(o.stars - r.stars) > 1 : o.splitIndex !== r.splitIndex) continue;
     const gap = Math.abs(liveMs(o, ctx.now) - myMs);
     if (gap <= 30_000 && (!best || gap < best.gap)) best = { partner: o, gap };
   }

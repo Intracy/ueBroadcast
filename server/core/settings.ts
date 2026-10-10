@@ -10,6 +10,7 @@ import type {
 import { FEED_ID_PATTERN } from '../../shared/settings';
 import type { AppConfig, FeedConfig, ProductionConfig } from './config';
 import { DATA_DIR, writeJsonFile } from './config';
+import { SM64_CATEGORIES, categoryOf } from '../../shared/sm64Categories';
 import { ActionError } from '../formats/types';
 
 export const SETTINGS_FILE = join(DATA_DIR, 'settings.json');
@@ -105,6 +106,7 @@ export function productionSettingsView(c: ProductionConfig): ProductionSettings 
     autopilotMinHoldSec: c.autopilot?.minHoldSec ?? 40,
     twitchAutoMarkers: c.twitch?.autoMarkers ?? false,
     scoring: typeof c.formatConfig?.scoring === 'string' ? (c.formatConfig.scoring as string) : undefined,
+    category: c.format === 'sm64-marathon' ? categoryOf(c.formatConfig) : undefined,
     commentaryScene: c.commentary?.obsScene ?? '',
     commentaryLabel: c.commentary?.label ?? '',
     commentarySize: c.commentary?.size ?? 30,
@@ -127,7 +129,7 @@ export function productionSettingsView(c: ProductionConfig): ProductionSettings 
   };
 }
 
-const ALLOWED_META = new Set(['twitch', 'discord', 'platform', 'notes', 'pbMs', 'country']);
+const ALLOWED_META = new Set(['twitch', 'discord', 'platform', 'notes', 'pbMs', 'country', 'pbByCategory']);
 
 function cleanFeed(raw: FeedSettings, index: number): FeedConfig {
   const id = trimStr(raw?.id, 32).toLowerCase();
@@ -162,6 +164,14 @@ function cleanFeed(raw: FeedSettings, index: number): FeedConfig {
     if (!ALLOWED_META.has(k)) continue;
     if (k === 'pbMs') {
       if (typeof v === 'number' && Number.isFinite(v) && v > 0) meta.pbMs = Math.round(v);
+    } else if (k === 'pbByCategory') {
+      // PBs je SM64-Kategorie ({ '70': ms, '16': ms … })
+      const byCat: Record<string, number> = {};
+      for (const [cat, ms] of Object.entries((v ?? {}) as Record<string, unknown>)) {
+        if (/^\d{1,3}$/.test(cat) && typeof ms === 'number' && Number.isFinite(ms) && ms > 0)
+          byCat[cat] = Math.round(ms);
+      }
+      if (Object.keys(byCat).length) meta.pbByCategory = byCat;
     } else {
       const s = trimStr(v, k === 'notes' ? 1000 : 100);
       if (s) meta[k] = s;
@@ -236,7 +246,30 @@ export function mergeProductionSettings(original: ProductionConfig, s: Productio
   }
   if (s.scoring !== undefined) {
     if (!['bestTime', 'finishedRuns', 'totalStars'].includes(s.scoring)) throw new ActionError('Unbekannte Wertung');
-    next.formatConfig = { ...(original.formatConfig ?? {}), scoring: s.scoring };
+    next.formatConfig = { ...(next.formatConfig ?? original.formatConfig ?? {}), scoring: s.scoring };
+  }
+  if (s.category !== undefined && original.format === 'sm64-marathon') {
+    if (!SM64_CATEGORIES.some((c) => c.id === s.category)) throw new ActionError('Unbekannte Kategorie');
+    const fc: Record<string, unknown> = { ...(next.formatConfig ?? original.formatConfig ?? {}) };
+    const previous = categoryOf(original.formatConfig);
+    if (previous !== s.category) {
+      // Neue Kategorie: deren Splits und Sternzahl gelten – alte eigene Splits passen nicht mehr
+      delete fc.splits;
+      delete fc.goalStars;
+      // PBs gelten je Kategorie: aktuelle PB merken, die der neuen Kategorie (falls bekannt) laden
+      for (const f of next.feeds) {
+        const meta: Record<string, unknown> = { ...(f.meta ?? {}) };
+        const byCat = { ...((meta.pbByCategory as Record<string, number> | undefined) ?? {}) };
+        if (typeof meta.pbMs === 'number') byCat[previous] = meta.pbMs;
+        const pb = byCat[s.category];
+        if (typeof pb === 'number') meta.pbMs = pb;
+        else delete meta.pbMs;
+        meta.pbByCategory = byCat;
+        f.meta = meta;
+      }
+    }
+    fc.category = s.category;
+    next.formatConfig = fc;
   }
   return next;
 }
