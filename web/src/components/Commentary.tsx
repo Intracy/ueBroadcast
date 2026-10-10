@@ -3,7 +3,7 @@ import type { ObsStatus, ProductionState } from '../../../shared/types';
 import type { Corner, HostMode, HostPlacement } from '../../../shared/host';
 import { CORNER_LABEL, hostOf } from '../../../shared/host';
 import { send } from '../api';
-import { CamVideo, startCam, stopCam, useCommentaryCam } from './CommentaryCam';
+import { CamVideo, startCam, useCommentaryCam } from './CommentaryCam';
 import { formatUi } from '../formats';
 
 // ------------------------------------------------------------------ Bedienleiste
@@ -16,10 +16,11 @@ const MODES: Array<{ mode: HostMode; label: string; key: string }> = [
 
 const CORNER_ICON: Record<Corner, string> = { tl: '↖', tr: '↗', bl: '↙', br: '↘' };
 
-export function CommentaryBar({ production }: { production: ProductionState; obs?: ObsStatus }) {
+export function CommentaryBar({ production, obs }: { production: ProductionState; obs?: ObsStatus }) {
   const c = production.commentary;
   const hasBoard = !!formatUi(production.format).boardData;
-  const cam = useCommentaryCam(!!c);
+  const obsLive = obs?.mode === 'obs' && obs.connected;
+  const cam = useCommentaryCam(!!c, !obsLive || !!obs?.virtualCam);
   const preview = hostOf(production.preview);
   const program = hostOf(production.program);
   const [flash, setFlash] = useState(false);
@@ -46,12 +47,12 @@ export function CommentaryBar({ production }: { production: ProductionState; obs
 
   return (
     <section className={`commentary-bar ${onAir ? 'on-air' : ''} ${flash ? 'flash' : ''}`} aria-label="Kommentar">
-      <div className="commentary-thumb" title={`Live-Bild der Kommentar-Kamera (OBS-Szene „${c.obsScene}“)`}>
+      <div className="commentary-thumb" title={`Live-Bild der OBS-Szene „${c.obsScene}“`}>
         {cam.stream ? (
           <CamVideo stream={cam.stream} label={c.label} />
         ) : (
           <button className="btn small" onClick={() => void startCam()} disabled={cam.starting}>
-            {cam.starting ? 'Kamera startet …' : 'Kamera verbinden'}
+            {cam.starting ? 'Verbinde …' : 'OBS-Bild verbinden'}
           </button>
         )}
         {onAir && <span className="onair-badge">{program.mode === 'full' ? 'VOLLBILD' : 'OVERLAY'}</span>}
@@ -105,26 +106,10 @@ export function CommentaryBar({ production }: { production: ProductionState; obs
         </div>
 
         <div className="commentary-row">
-          <span className="muted small label">Kamera</span>
-          {cam.devices.length > 0 ? (
-            <select
-              className="cam-select"
-              value={cam.deviceId ?? ''}
-              onChange={(e) => void (e.target.value ? startCam(e.target.value) : stopCam())}
-              aria-label="Kamera für das Live-Bild der Kommentatoren"
-            >
-              <option value="">– aus –</option>
-              {cam.devices.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="muted small">
-              Live-Bild direkt von der Kamera an diesem Rechner (z. B. Cam Link) – „Kamera verbinden“
-            </span>
-          )}
+          <span className="muted small label">Bild</span>
+          <span className="muted small">Live aus der OBS-Szene „{c.obsScene}“ (virtuelle Kamera von OBS)</span>
+          {obsLive && !obs?.virtualCam && <span className="pill warn">Virtuelle Kamera in OBS aus</span>}
+          {cam.stream && <span className="pill good">live</span>}
           {cam.error && <span className="pill bad">{cam.error}</span>}
         </div>
 

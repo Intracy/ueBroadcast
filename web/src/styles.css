@@ -2289,10 +2289,6 @@ input[type='range'] {
   background: #000;
 }
 
-.cam-select {
-  max-width: 260px;
-}
-
 /* Kommentar-Kamera als Kachel und im Slot */
 .host-tile {
   border-color: rgba(255, 196, 87, 0.45);

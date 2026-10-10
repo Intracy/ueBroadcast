@@ -124,6 +124,8 @@ export interface ObsStatus {
   studioMode: boolean;
   programScene: string | null;
   setupDone: boolean;
+  /** Virtuelle Kamera von OBS läuft (liefert das Live-Bild der Kommentar-Szene an die Regie) */
+  virtualCam: boolean;
   error: string | null;
 }
 

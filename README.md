@@ -80,6 +80,8 @@ Weitere Funktionen:
 
 Die Kommentatoren haben in OBS eine eigene Szene, z. B. mit der Kamera über einen Cam Link. Unter **Einstellungen → Produktion → Kommentar** trägst du den Namen dieser Szene ein („Szenen aus OBS laden“ listet alle Szenen), dazu die Namen fürs Bild, die Größe des Overlays und die Standard-Ecke. Danach einmal **OBS einrichten**: ueBroadcast bettet die Szene in „ueB Programm A/B“ ein, über den Runnern und unter dem Overlay.
 
+Das Live-Bild der Kommentar-Szene in der Regie kommt über die **virtuelle Kamera von OBS**: In OBS beim Zahnrad neben „Virtuelle Kamera starten“ den Ausgabetyp **Szene** und die Kommentar-Szene wählen. ueBroadcast startet die virtuelle Kamera automatisch; in der Regie einmal „OBS-Bild verbinden“ klicken und den Videozugriff im Browser erlauben. Die Kommentar-Kachel im Runner-Überblick lässt sich wie ein Runner in jeden Slot ziehen.
+
 In der Regie gibt es dafür eine eigene Leiste mit Live-Standbild aus OBS:
 
 | Modus        | Wirkung                                                                                                                              | Taste |

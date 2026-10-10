@@ -1,5 +1,5 @@
 import type { FeedInsight, FeedState, ProductionState } from '../../../shared/types';
-import { send } from '../api';
+import { send, useStore } from '../api';
 import { formatUi } from '../formats';
 import { DeltaText, ScoreBadge, TimerText } from './bits';
 import { LiveFeed, canShowLive } from './LiveFrame';
@@ -39,7 +39,8 @@ export function Multiview({ production, insights, now, offset, onPick }: Props) 
 /** Kachel der Kommentar-Kamera: wie ein Runner anklicken oder in einen Slot ziehen. */
 function CommentaryTile({ production, onPick }: { production: ProductionState; onPick: () => void }) {
   const c = production.commentary!;
-  const cam = useCommentaryCam(true);
+  const { state } = useStore();
+  const cam = useCommentaryCam(true, state?.obs.mode !== 'obs' || !!state?.obs.virtualCam);
   const inSlot = (comp: ProductionState['program']) => Object.values(comp.slots).includes(HOST_FEED_ID);
   const onProgram = inSlot(production.program) || hostOf(production.program).mode !== 'off';
   const inPreview = inSlot(production.preview) || hostOf(production.preview).mode !== 'off';
@@ -75,7 +76,7 @@ function CommentaryTile({ production, onPick }: { production: ProductionState; o
               }}
               disabled={cam.starting}
             >
-              {cam.starting ? 'Kamera startet …' : 'Kamera verbinden'}
+              {cam.starting ? 'Verbinde …' : 'OBS-Bild verbinden'}
             </button>
           </div>
         )}

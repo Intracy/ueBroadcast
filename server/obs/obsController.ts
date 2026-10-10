@@ -55,6 +55,7 @@ export class ObsController extends EventEmitter {
       studioMode: false,
       programScene: null,
       setupDone: false,
+      virtualCam: false,
       error: null,
     };
   }
@@ -77,7 +78,10 @@ export class ObsController extends EventEmitter {
 
   setSpec(spec: ObsSetupSpec): void {
     this.spec = spec;
-    if (this.active) void this.refresh().catch((e) => this.fail(e));
+    if (this.active) {
+      void this.refresh().catch((e) => this.fail(e));
+      void this.ensureVirtualCam();
+    }
   }
 
   async reconnect(): Promise<void> {
@@ -104,6 +108,7 @@ export class ObsController extends EventEmitter {
       studioMode: false,
       programScene: null,
       setupDone: false,
+      virtualCam: false,
       error: null,
     });
     if (!url) return;
@@ -132,11 +137,12 @@ export class ObsController extends EventEmitter {
     this.obs = obs;
     obs.on('ConnectionClosed', () => {
       if (this.obs !== obs) return;
-      this.update({ connected: false });
+      this.update({ connected: false, virtualCam: false });
       this.scheduleReconnect();
     });
     obs.on('CurrentProgramSceneChanged', (e) => this.update({ programScene: e.sceneName }));
     obs.on('StudioModeStateChanged', (e) => this.update({ studioMode: e.studioModeEnabled }));
+    obs.on('VirtualcamStateChanged', (e) => this.update({ virtualCam: e.outputActive }));
     obs.on('SceneItemCreated', () => void this.cacheItems().catch(() => undefined));
     obs.on('SceneItemRemoved', () => void this.cacheItems().catch(() => undefined));
     try {
@@ -146,6 +152,7 @@ export class ObsController extends EventEmitter {
       await this.refresh();
       // Overlay frisch laden: Die Browserquelle hält sonst eine ältere Version der Grafik im Speicher
       await this.reloadOverlay();
+      await this.ensureVirtualCam();
       this.emit('connected');
     } catch (err) {
       this.update({ connected: false, error: err instanceof Error ? err.message : String(err) });
@@ -201,6 +208,25 @@ export class ObsController extends EventEmitter {
       }
     }
     return changed;
+  }
+
+  /**
+   * Startet die virtuelle Kamera von OBS, wenn eine Kommentar-Szene eingerichtet ist. Sie liefert das
+   * Live-Bild dieser Szene an die Regie (in OBS: Virtuelle Kamera → Ausgabetyp „Szene“ → Kommentar-Szene).
+   */
+  async ensureVirtualCam(): Promise<void> {
+    if (!this.active || !this.obs || !this.spec?.commentaryScene) return;
+    try {
+      const { outputActive } = await this.call<{ outputActive: boolean }>('GetVirtualCamStatus');
+      if (!outputActive) {
+        await this.call('StartVirtualCam');
+        this.emit('log', 'Virtuelle Kamera von OBS gestartet (Live-Bild der Kommentar-Szene)');
+      }
+      this.update({ virtualCam: true });
+    } catch (err) {
+      this.update({ virtualCam: false });
+      this.emit('log', `Virtuelle Kamera nicht verfügbar: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   /** Lädt die Overlay-Browserquelle neu (ohne Cache). */
@@ -419,6 +445,7 @@ export class ObsController extends EventEmitter {
     await this.refresh();
     this.update({ setupDone: true });
     await this.reloadOverlay();
+    await this.ensureVirtualCam();
     return notes;
   }
 
