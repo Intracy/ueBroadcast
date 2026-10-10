@@ -11,6 +11,17 @@ export interface HostPlacement {
 
 export const DEFAULT_HOST: HostPlacement = { mode: 'off', corner: 'br' };
 
+/**
+ * Platzhalter-ID der Kommentar-Kamera in einer Slot-Belegung: Die Kamera lässt sich wie ein Runner
+ * per Drag & Drop in einen Slot legen und füllt dann genau diesen Slot.
+ */
+export const HOST_FEED_ID = '@kommentar';
+
+/** Slot, in dem die Kommentar-Kamera liegt (falls sie in einem Slot liegt). */
+export function hostSlot(layout: LayoutDef | undefined, comp: Composition): SlotDef | undefined {
+  return layout?.slots.find((s) => comp.slots[s.id] === HOST_FEED_ID);
+}
+
 export const CORNER_LABEL: Record<Corner, string> = {
   br: 'unten rechts',
   bl: 'unten links',
@@ -69,6 +80,23 @@ export function hostRect(
   const limit = 1 - bottomReserve - marginY;
   if (!top && y + h > limit) y = Math.max(a.y + marginY, limit - h);
   return { x, y, w, h };
+}
+
+/**
+ * Wo das Kommentar-Bild in einer Belegung liegt: im Slot, wenn es dort liegt, sonst nach Modus
+ * (Overlay/Vollbild). `null` = nicht im Bild.
+ */
+export function compositionHostRect(
+  layout: LayoutDef | undefined,
+  comp: Composition,
+  sizePct = 30,
+  bottomReserve = 0,
+): Rect | null {
+  const host = hostOf(comp);
+  if (host.mode === 'full') return { x: 0, y: 0, w: 1, h: 1 };
+  const slot = hostSlot(layout, comp);
+  if (slot) return { x: slot.x, y: slot.y, w: slot.w, h: slot.h };
+  return hostRect(layout, host, sizePct, bottomReserve);
 }
 
 /** Platz für den Ticker unten im Overlay (64 px + Rand bei 1080 px Höhe). */

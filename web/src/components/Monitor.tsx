@@ -7,7 +7,7 @@ import type {
   GraphicsState,
   LayoutDef,
 } from '../../../shared/types';
-import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
+import { HOST_FEED_ID, TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
 import { CamVideo, useCommentaryCam } from './CommentaryCam';
 import { DeltaText, TimerText } from './bits';
 import { LiveFeed, canShowLive } from './LiveFrame';
@@ -63,7 +63,8 @@ export function Monitor({
   const title = kind === 'program' ? 'Programm' : 'Vorschau';
   const host = hostOf(comp);
   const box = commentary ? hostRect(layout, host, commentary.size, tickerOn ? TICKER_RESERVE : 0) : null;
-  const cam = useCommentaryCam(!!box);
+  const hostInSlot = !!commentary && Object.values(comp.slots).includes(HOST_FEED_ID);
+  const cam = useCommentaryCam(!!box || hostInSlot);
   // Tabellen-Grafiken: Band unter den Feeds, Lower Third im Kommentar-Vollbild, Vollbild (nur Programm)
   const band =
     board && graphics?.boardStrip && host.mode !== 'full' && !graphics.lowerThird.visible
@@ -99,13 +100,14 @@ export function Monitor({
         {layout && layout.slots.length === 0 && host.mode !== 'full' && <div className="slate">Pause / Grafik</div>}
         {layout?.slots.map((slot, i) => {
           const feedId = comp.slots[slot.id];
-          const feed = feedId ? feeds.get(feedId) : undefined;
+          const isHost = feedId === HOST_FEED_ID && !!commentary;
+          const feed = feedId && !isHost ? feeds.get(feedId) : undefined;
           const ins = feedId ? insights.get(feedId) : undefined;
           const selected = selectedSlot === slot.id;
           return (
             <div
               key={slot.id}
-              className={`slot ${feed ? '' : 'empty'} ${selected ? 'selected' : ''} ${feed?.status === 'offline' ? 'lost' : ''}`}
+              className={`slot ${feed || isHost ? '' : 'empty'} ${isHost ? 'host-slot' : ''} ${selected ? 'selected' : ''} ${feed?.status === 'offline' ? 'lost' : ''}`}
               style={{
                 left: `${slot.x * 100}%`,
                 top: `${slot.y * 100}%`,
@@ -129,8 +131,16 @@ export function Monitor({
                   scalePct={kind === 'program' ? 66 : 50}
                 />
               )}
+              {isHost && host.mode !== 'full' && cam.stream && (
+                <CamVideo stream={cam.stream} label={commentary!.label} />
+              )}
               {i === 0 && layout.slots.length > 1 && <span className="slot-main">Haupt</span>}
-              {feed ? (
+              {isHost ? (
+                <div className="slot-info">
+                  <strong>{commentary!.label}</strong>
+                  <span>Kommentar-Kamera</span>
+                </div>
+              ) : feed ? (
                 <div className="slot-info">
                   <strong>{feed.label}</strong>
                   <span>

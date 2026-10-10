@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import type { HostPlacement, Rect } from '../../shared/host';
-import { TICKER_RESERVE, hostOf, hostRect } from '../../shared/host';
+import { HOST_FEED_ID, TICKER_RESERVE, compositionHostRect, hostOf } from '../../shared/host';
 import type {
   Alert,
   CommentaryInfo,
@@ -196,12 +196,26 @@ export class Production extends EventEmitter {
   /** Wo das Kommentar-Bild in einer Belegung liegt (null = nicht sichtbar). */
   hostBox(comp: Composition): Rect | null {
     if (!this.commentary) return null;
-    return hostRect(
+    return compositionHostRect(
       this.layoutById(comp.layoutId),
-      hostOf(comp),
+      comp,
       this.commentary.size,
       this.graphics.ticker ? TICKER_RESERVE : 0,
     );
+  }
+
+  /** Erlaubter Slot-Inhalt: ein Feed der Produktion oder die Kommentar-Kamera (wenn eingerichtet). */
+  private slotValue(fid: unknown): string | null {
+    if (typeof fid !== 'string' || !fid) return null;
+    if (fid === HOST_FEED_ID) return this.commentary ? fid : null;
+    return this.feedById(fid) ? fid : null;
+  }
+
+  /** Kommentar-Kamera aus allen Slots nehmen (sie kann nur an einer Stelle im Bild sein). */
+  private withoutHostSlot(comp: Composition): Composition {
+    const slots = { ...comp.slots };
+    for (const [k, v] of Object.entries(slots)) if (v === HOST_FEED_ID) slots[k] = null;
+    return { ...comp, slots };
   }
 
   /** Kommentar-Einstellung prüfen; ohne eingerichtete Szene immer „aus“. */
@@ -411,8 +425,10 @@ export class Production extends EventEmitter {
       const names =
         host.mode === 'full'
           ? ''
-          : feedsInComposition(this.program, layout)
-              .map((id) => this.feedById(id)?.label ?? id)
+          : layout.slots
+              .map((sl) => this.program.slots[sl.id])
+              .filter((id): id is string => !!id)
+              .map((id) => (id === HOST_FEED_ID ? 'Kommentar' : (this.feedById(id)?.label ?? id)))
               .join(', ');
       const what =
         host.mode === 'full'
@@ -441,7 +457,12 @@ export class Production extends EventEmitter {
     if (!this.audioFollow) return;
     const layout = this.layoutById(this.program.layoutId);
     // Kommentar im Vollbild: kein Spielton
-    const main = hostOf(this.program).mode === 'full' ? undefined : feedsInComposition(this.program, layout)[0];
+    // Kommentar im Vollbild oder im Hauptslot: kein Spielton
+    const first = layout?.slots[0] ? this.program.slots[layout.slots[0].id] : null;
+    const main =
+      hostOf(this.program).mode === 'full' || first === HOST_FEED_ID
+        ? undefined
+        : feedsInComposition(this.program, layout)[0];
     await this.deps.obs.setAudible(new Set(main ? [main] : [])).catch((e) => this.obsError(e));
   }
 
@@ -490,8 +511,18 @@ export class Production extends EventEmitter {
       }
       case 'preview.assign': {
         const feedId = p.feedId === null ? null : str('feedId');
-        if (feedId && !this.feedById(feedId)) throw new ActionError('Unbekannter Feed');
+        if (feedId && !this.slotValue(feedId)) {
+          throw new ActionError(
+            feedId === HOST_FEED_ID
+              ? 'Keine Kommentar-Szene eingerichtet (Einstellungen → Produktion)'
+              : 'Unbekannter Feed',
+          );
+        }
         this.preview = assignFeed(this.preview, str('slotId'), feedId);
+        // Kamera im Slot ersetzt Overlay/Vollbild
+        if (feedId === HOST_FEED_ID && this.preview.host && this.preview.host.mode !== 'off') {
+          this.preview = { ...this.preview, host: { ...this.preview.host, mode: 'off' } };
+        }
         break;
       }
       case 'preview.set': {
@@ -500,8 +531,7 @@ export class Production extends EventEmitter {
         const layout = this.layoutById(comp.layoutId)!;
         const clean = emptyComposition(layout);
         for (const slot of layout.slots) {
-          const fid = comp.slots?.[slot.id];
-          clean.slots[slot.id] = fid && this.feedById(fid) ? fid : null;
+          clean.slots[slot.id] = this.slotValue(comp.slots?.[slot.id]);
         }
         const host = this.cleanHost(comp.host ?? this.preview.host);
         if (host) clean.host = host;
@@ -511,15 +541,18 @@ export class Production extends EventEmitter {
       case 'preview.host': {
         if (!this.commentary) throw new ActionError('Keine Kommentar-Szene eingerichtet (Einstellungen → Produktion)');
         const current = hostOf(this.preview);
-        const host = this.cleanHost({ ...current, ...p });
-        this.preview = { ...this.preview, host: host ?? { mode: 'off', corner: current.corner } };
+        const host = this.cleanHost({ ...current, ...p }) ?? { mode: 'off', corner: current.corner };
+        // Overlay/Vollbild holt die Kamera aus einem Slot heraus
+        const base = host.mode !== 'off' ? this.withoutHostSlot(this.preview) : this.preview;
+        this.preview = { ...base, host };
         break;
       }
       case 'host.take': {
         // Kommentar-Modus direkt aufs Programm, Runner-Belegung bleibt
         if (!this.commentary) throw new ActionError('Keine Kommentar-Szene eingerichtet (Einstellungen → Produktion)');
         const host = this.cleanHost({ ...hostOf(this.program), ...p }) ?? { mode: 'off', corner: 'br' };
-        const next = { ...structuredClone(this.program), host };
+        const program = host.mode !== 'off' ? this.withoutHostSlot(this.program) : this.program;
+        const next = { ...structuredClone(program), host };
         this.preview = { ...this.preview, host: { ...host } };
         await this.take(next, 'Kommentar');
         break;
@@ -669,8 +702,7 @@ export class Production extends EventEmitter {
     if (!c || !layout) return null;
     const clean = emptyComposition(layout);
     for (const slot of layout.slots) {
-      const fid = c.slots?.[slot.id];
-      clean.slots[slot.id] = fid && this.feedById(fid) ? fid : null;
+      clean.slots[slot.id] = this.slotValue(c.slots?.[slot.id]);
     }
     const host = this.cleanHost(c.host ?? {});
     if (host) clean.host = host;

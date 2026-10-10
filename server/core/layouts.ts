@@ -1,4 +1,5 @@
 import type { Composition, LayoutDef, SlotDef } from '../../shared/types';
+import { HOST_FEED_ID } from '../../shared/host';
 
 /**
  * Raster aus 16:9-Kacheln auf der 16:9-Leinwand. Auf dieser Leinwand ist eine Kachel genau dann 16:9,
@@ -103,8 +104,10 @@ export function assignFeed(comp: Composition, slotId: string, feedId: string | n
 
 /** Feeds einer Belegung in Slot-Reihenfolge. */
 export function feedsInComposition(comp: Composition, layout: LayoutDef | undefined): string[] {
-  if (!layout) return Object.values(comp.slots).filter((f): f is string => !!f);
-  return layout.slots.map((s) => comp.slots[s.id]).filter((f): f is string => !!f);
+  // Die Kommentar-Kamera (HOST_FEED_ID) ist kein Runner-Feed
+  const isFeed = (f: string | null | undefined): f is string => !!f && f !== HOST_FEED_ID;
+  if (!layout) return Object.values(comp.slots).filter(isFeed);
+  return layout.slots.map((s) => comp.slots[s.id]).filter(isFeed);
 }
 
 export function sameComposition(a: Composition, b: Composition): boolean {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TICKER_RESERVE, hostRect } from '../shared/host';
-import { DEFAULT_LAYOUTS } from '../server/core/layouts';
+import { HOST_FEED_ID, TICKER_RESERVE, hostRect } from '../shared/host';
+import { DEFAULT_LAYOUTS, feedsInComposition } from '../server/core/layouts';
 import { Production } from '../server/core/production';
 import { ObsController } from '../server/obs/obsController';
 import { TwitchClient } from '../server/integrations/twitch';
@@ -79,5 +79,39 @@ describe('Kommentar in der Produktion', () => {
       composition: { layoutId: 'single', slots: { main: 'r1' }, host: { mode: 'full' } },
     });
     expect(p.getState().preview.host).toBeUndefined();
+  });
+});
+
+describe('Kommentar-Kamera im Slot', () => {
+  it('lässt sich wie ein Runner in einen Slot legen und füllt genau diesen Slot', async () => {
+    const p = make({ obsScene: 'Kommentar', label: 'Huebi' });
+    await p.handleAction('preview.layout', { layoutId: 'duo' });
+    await p.handleAction('preview.host', { mode: 'pip' });
+    await p.handleAction('preview.assign', { slotId: 'right', feedId: HOST_FEED_ID });
+    // Kamera im Slot ersetzt das Overlay
+    expect(p.getState().preview.slots.right).toBe(HOST_FEED_ID);
+    expect(p.getState().preview.host?.mode).toBe('off');
+    await p.handleAction('take', {});
+    const duo = layout('duo').slots.find((s) => s.id === 'right')!;
+    expect(p.hostBox(p.getState().program)).toEqual({ x: duo.x, y: duo.y, w: duo.w, h: duo.h });
+    expect(p.getLog().at(-1)?.text).toContain('Kommentar');
+    // Runner-Feeds der Belegung ohne Kamera
+    expect(feedsInComposition(p.getState().program, layout('duo'))).toEqual(['r1']);
+  });
+
+  it('holt die Kamera beim Einblenden als Overlay oder Vollbild aus dem Slot', async () => {
+    const p = make({ obsScene: 'Kommentar', label: 'Huebi' });
+    await p.handleAction('preview.assign', { slotId: 'main', feedId: HOST_FEED_ID });
+    await p.handleAction('take', {});
+    await p.handleAction('host.take', { mode: 'full' });
+    expect(Object.values(p.getState().program.slots)).not.toContain(HOST_FEED_ID);
+    expect(p.getState().program.host?.mode).toBe('full');
+  });
+
+  it('lehnt die Kamera ohne eingerichtete Kommentar-Szene ab', async () => {
+    const p = make();
+    await expect(p.handleAction('preview.assign', { slotId: 'main', feedId: HOST_FEED_ID })).rejects.toThrow(
+      /Kommentar-Szene/,
+    );
   });
 });

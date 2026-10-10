@@ -3,7 +3,7 @@ import type { FeedInsight, ProductionState } from '../../../shared/types';
 import { formatDelta, timerValue, formatDuration } from '../../../shared/format';
 import { useNow, useStore } from '../api';
 import { formatUi } from '../formats';
-import { TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
+import { HOST_FEED_ID, TICKER_RESERVE, boardBand, hostOf, hostRect } from '../../../shared/host';
 import { BoardFull, BoardLower, BoardStrip } from './Boards';
 
 /** Overlay als OBS-Browserquelle: 1920×1080, transparenter Hintergrund, skaliert auf die Quellgröße. */
@@ -83,6 +83,27 @@ function ProgramOverlay({ prod, now, offset }: { prod: ProductionState; now: num
         layout!.slots.map((slot) => {
           const feedId = prod.program.slots[slot.id];
           if (!feedId) return null;
+          const compactHost = slot.w * 1920 < 760;
+          const hostPlateTop = Math.min(slot.y + slot.h, bottomEdge);
+          if (feedId === HOST_FEED_ID) {
+            // Kommentar-Kamera im Slot: Namensschild der Kommentatoren
+            if (!prod.commentary) return null;
+            if (g.lowerThird.visible && slot.x < 0.32 && hostPlateTop > 0.76) return null;
+            return (
+              <div
+                key={slot.id}
+                className={`ov-plate host ${compactHost ? 'compact' : ''}`}
+                style={{
+                  left: `${slot.x * 100}%`,
+                  top: `${hostPlateTop * 100}%`,
+                  maxWidth: `${slot.w * 1920 - (compactHost ? 16 : 28)}px`,
+                }}
+              >
+                <span className="ov-stat">Kommentar</span>
+                <span className="ov-name">{prod.commentary.label}</span>
+              </div>
+            );
+          }
           const feed = feeds.get(feedId);
           const ins = insights.get(feedId);
           const t = timerValue(ins?.timer ?? null, now, offset);
